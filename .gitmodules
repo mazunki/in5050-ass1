@@ -1,3 +1,3 @@
 [submodule "precode.git"]
-	path = precode.git
+	path = docs/precode.git
 	url = git@github.com:griwodz/in5050-codec63.git

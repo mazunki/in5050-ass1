@@ -2,8 +2,7 @@
 #+AUTHOR: Group 1
 #+LINK: https://youtu.be/PfYnvDL0Qcw
 
-* IN5050 — Video Encoding on CUDA
-  Repository for the first assignment of IN5050 by [[https://youtu.be/PfYnvDL0Qcw][Group 1]].
+Repository for the first assignment of IN5050 by [[https://youtu.be/PfYnvDL0Qcw][Group 1]].
 
 * Project Layout
   - ~precode/~ :: Unaltered from upstream.

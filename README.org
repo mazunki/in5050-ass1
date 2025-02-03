@@ -1,0 +1,19 @@
+#+TITLE: IN5050 — Video Encoding on CUDA
+#+AUTHOR: Group 1
+#+LINK: https://youtu.be/PfYnvDL0Qcw
+
+* IN5050 — Video Encoding on CUDA
+  Repository for the first assignment of IN5050 by [[https://youtu.be/PfYnvDL0Qcw][Group 1]].
+
+* Project Layout
+  - ~precode/~ :: Unaltered from upstream.
+  - ~src/~ :: Contains the main code.
+  - ~build/~ :: Compiled binaries and intermediate files.
+
+* Running
+After dependencies are met, building and running the program should be a matter of the following:
+  #+begin_src sh
+  make
+  # make install
+  ./runProgram
+  #+end_src

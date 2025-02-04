@@ -16,6 +16,8 @@ The code related stuff is stored inside the ~projects/~ subdirectory. Documentat
 * Running
 After dependencies are met, building and running the program should be a matter of the following:
 
+After having run ~cmake~ succesfully for the first time, you will get ~compile_commands.json~ available in the build-dir, giving your editor's LSP sufficient information to give meaningful linting.
+
 #+begin_src sh
   cd project
 

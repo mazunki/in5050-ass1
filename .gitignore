@@ -1,0 +1,7 @@
+# editor files
+\#*\#
+
+
+# build artifacts
+/project/build
+/project/.cache

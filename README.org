@@ -1,18 +1,30 @@
 #+TITLE: IN5050 — Video Encoding on CUDA
-#+AUTHOR: Group 1
-#+LINK: https://youtu.be/PfYnvDL0Qcw
+#+AUTHOR: Lise E. Johansen <liseej@uio.no>, Mazunki Hoksaas <rolfvh@uio.no>
+#+LINK: https://www.uio.no/studier/emner/matnat/ifi/IN5050/v25/slides/in5050-exam-01.pdf
 
-Repository for the first assignment of IN5050 by [[https://youtu.be/PfYnvDL0Qcw][Group 1]].
+Repository for the first assignment of IN5050 by [[https://youtu.be/PfYnvDL0Qcw][Group 1]] (@liseej, @rolfvh).
 
 * Project Layout
-  - ~precode/~ :: Unaltered from upstream.
-  - ~src/~ :: Contains the main code.
-  - ~build/~ :: Compiled binaries and intermediate files.
+The code related stuff is stored inside the ~projects/~ subdirectory. Documentation is stored under the ~docs/~ subdirectory. The root level directory contains repository metadata.
 
+  - ~docs/precode.git/~ :: Unaltered from upstream.
+  - ~project/src/~ :: Contains the main code.
+  - ~project/build/~ :: Compiled binaries and intermediate files.
+  - ~project/include/~ :: Local header files
+  - ~/usr/local/cuda~ :: Path to CUDA installation
+    
 * Running
 After dependencies are met, building and running the program should be a matter of the following:
   #+begin_src sh
-  make
-  # make install
-  ./runProgram
+    cd project
+
+    env CC=clang CXX=clang++ \
+	CMAKE_CUDA_HOST_COMPILER=clang NVCC_CCBIN=clang \
+	-DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+	cmake -B build
+    (cd build; make)
+
+    build/c63enc
+    # or
+    build/c63dec
   #+end_src

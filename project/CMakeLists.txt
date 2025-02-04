@@ -22,8 +22,10 @@ set(CMAKE_C_FLAGS_DEBUG "-g -O1 -fno-tree-vectorize")
 set(CMAKE_BUILD_TYPE Debug)
 # set(CMAKE_BUILD_TYPE Release)  # <- for speeds
 
-# add_compile_options(-Wall -Wextra -Wpedantic)
-# add_compile_options(-Werror -Wno-error=unused-parameter)
+add_compile_options(-Wall -Wextra -Wpedantic)
+add_compile_options(-Werror -Wno-error=unused-parameter)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if (CMAKE_C_COMPILER_ID STREQUAL GNU)
   message(FATAL "don't use gcc please")

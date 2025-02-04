@@ -11,7 +11,7 @@ The code related stuff is stored inside the ~projects/~ subdirectory. Documentat
   - ~project/src/~ :: Contains the main code.
   - ~project/build/~ :: Compiled binaries and intermediate files.
   - ~project/include/~ :: Local header files
-  - ~/usr/local/cuda~ :: Path to CUDA installation
+  - ~/usr/local/cuda~ :: Path to CUDA installation. I got mine from [[https://developer.nvidia.com/hpc-sdk-downloads][Nvidia HPC-SDK]], and symlinked the path towards ~/opt/nvidia/hpc_sdk/Linux_x86_64/2025/cuda~ after completing its default installation.
     
 * Running
 After dependencies are met, building and running the program should be a matter of the following:

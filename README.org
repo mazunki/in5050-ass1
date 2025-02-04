@@ -15,16 +15,14 @@ The code related stuff is stored inside the ~projects/~ subdirectory. Documentat
     
 * Running
 After dependencies are met, building and running the program should be a matter of the following:
-  #+begin_src sh
-    cd project
 
-    env CC=clang CXX=clang++ \
-	CMAKE_CUDA_HOST_COMPILER=clang NVCC_CCBIN=clang \
-	-DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-	cmake -B build
-    (cd build; make)
+#+begin_src sh
+  cd project
 
-    build/c63enc
-    # or
-    build/c63dec
-  #+end_src
+  env NVCC_CCBIN=clang cmake -B build
+  (cd build; make)
+
+  build/c63enc
+  # or
+  build/c63dec
+#+end_src

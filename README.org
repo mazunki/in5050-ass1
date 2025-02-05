@@ -21,7 +21,7 @@ After having run ~cmake~ succesfully for the first time, you will get ~compile_c
 #+begin_src sh
   cd project
 
-  env NVCC_CCBIN=clang cmake -B build
+  env CC=clang CXX=clang++ NVCC_CCBIN=clang cmake -B build
   (cd build; make)
 
   build/c63enc

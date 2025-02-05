@@ -1,3 +1,6 @@
 [submodule "precode.git"]
 	path = docs/precode.git
 	url = git@github.com:griwodz/in5050-codec63.git
+[submodule "docs/mjpeg.git"]
+	path = docs/mjpeg.git
+	url = git@github.com:griwodz/in5050-mjpeg.git

@@ -44,7 +44,7 @@ void dequantize_idct_row(int16_t *in_data, uint8_t *prediction, int w, int h,
 void dequantize_idct(int16_t *in_data, uint8_t *prediction, uint32_t width,
     uint32_t height, uint8_t *out_data, uint8_t *quantization)
 {
-  int y;
+  uint32_t y;
 
   for (y = 0; y < height; y += 8)
   {
@@ -83,7 +83,7 @@ void dct_quantize_row(uint8_t *in_data, uint8_t *prediction, int w, int h,
 void dct_quantize(uint8_t *in_data, uint8_t *prediction, uint32_t width,
     uint32_t height, int16_t *out_data, uint8_t *quantization)
 {
-  int y;
+  uint32_t y;
 
   for (y = 0; y < height; y += 8)
   {

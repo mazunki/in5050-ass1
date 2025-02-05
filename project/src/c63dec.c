@@ -59,7 +59,7 @@ static uint8_t get_vlc_token_ac(struct entropy_ctx *c,
     uint16_t table[HUFF_AC_ZERO][HUFF_AC_SIZE],
     uint8_t table_sz[HUFF_AC_ZERO][HUFF_AC_SIZE])
 {
-  int n, x, y;
+  uint32_t n, x, y;
   uint16_t bits = 0;
 
   for (n = 1; n <= 16; ++n)
@@ -229,7 +229,7 @@ static void read_interleaved_data_MCU(struct c63_common *cm, int16_t *dct,
 
 void read_interleaved_data(struct c63_common *cm)
 {
-  int u,v;
+  uint32_t u,v;
   int16_t prev_DC[3] = {0, 0, 0};
 
   uint32_t ublocks = (uint32_t) (ceil(cm->ypw/(float)(8.0f*2)));

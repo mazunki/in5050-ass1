@@ -7,9 +7,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
+#include <math.h>
+#include <stdlib.h>
 
-#include "dsp.h"
 #include "me.h"
+#include "tables.h"
+
+static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result)
+{
+  int u, v;
+
+  *result = 0;
+
+  for (v = 0; v < 8; ++v)
+  {
+    for (u = 0; u < 8; ++u)
+    {
+      *result += abs(block2[v*stride+u] - block1[v*stride+u]);
+    }
+  }
+}
 
 /* Motion estimation for 8x8 block */
 static void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y,

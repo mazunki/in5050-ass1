@@ -1,0 +1,31 @@
+\documentclass{article}
+
+\author{\{liseej, rolfvh\}@uio.no}
+\date{2025-02-06}
+\title{Design Doc: Home exam 1 \\ {\large Codec63 Encoder on CUDA --- IN5050}}
+
+
+\begin{document}
+\maketitle
+
+Codec63 is a bastardization of MJPEG which adds support for interframe prediction. It is used as a recreational tool to learn how to do motion prediction and correction as part of IN5050.
+
+Our task is to offload the parallelization of the encoding and decoding to an Nvidia GPU by using CUDA. To do this properly, we need to understand two fundamental concepts:
+\begin{itemize}
+	\item[---] \textbf{Motion Estimation}: A mechanism by which we identify frames which have moved to new location over different frames, storing them as motion vectors. This is a best-effort approach, and can (a.k.a will) introduce errors over time.
+	\item[---] \textbf{Motion Compensation}: Uses the motion vectors to predict how the following frame is going to look like. We only save the difference between these two frames in order to save on space.
+	\item[---] \textbf{Keyframe}: A frame which eliminates any guesswork to compute the real frame. This resets any errors which may accumulate.
+\end{itemize}
+
+\section{PCAM}
+In order to tackle the problem efficiently and arrive at the most optimal solution we could either be gods and just know the correct approach, or use a more realistic iterative solution. One such approach is the PCAM model made by Ian Foster (\cite{design-build-parallel-program}).
+
+His approach splits up the task into a streamlined process, split into four sequential tasks. Roughly speaking, the steps will first identify all the datapoints; the second step will look at their dependencies; the third will decide how to group the tasks and order them; and finally we map each task to the adequate hardware device.
+
+\subsection{Partitioning}
+
+\subsection{Communication}
+\subsection{Agglomeration}
+\subsection{Mapping}
+
+\end{document}

@@ -4,7 +4,6 @@
 \date{2025-02-06}
 \title{Design Doc: Home exam 1 \\ {\large Codec63 Encoder on CUDA --- IN5050}}
 
-
 \begin{document}
 \maketitle
 
@@ -18,13 +17,29 @@ Our task is to offload the parallelization of the encoding and decoding to an Nv
 \end{itemize}
 
 \section{PCAM}
-In order to tackle the problem efficiently and arrive at the most optimal solution we could either be gods and just know the correct approach, or use a more realistic iterative solution. One such approach is the PCAM model made by Ian Foster (\cite{design-build-parallel-program}).
+In order to tackle the problem efficiently and arrive at the most optimal solution we could either be gods and just know the correct approach, or use a more realistic iterative solution. One such approach is the PCAM model made by Ian Foster ().%\cite{design-build-parallel-program}).
 
 His approach splits up the task into a streamlined process, split into four sequential tasks. Roughly speaking, the steps will first identify all the datapoints; the second step will look at their dependencies; the third will decide how to group the tasks and order them; and finally we map each task to the adequate hardware device.
 
 \subsection{Partitioning}
+\begin{itemize}
+	\item[---] \textbf{reconstructed frame}: the frame after motion compensation (quantized, thus lossy)
+	\item[---] \textbf{residuals}: the difference between the original frame and the reconstructed frame
+	\item[---] \textbf{predicted frame}: the frame predicted using the motion vectors
+	\item[---] \textbf{macro blocks}: 8x8 blocks of pixels
+	\item[---] \textbf{reference frame}: the frame used to predict the current frame
+	\item[---] \textbf{current frame}: the frame being predicted
+	\item[---] \textbf{i-frame}: keyframe, no prediction
+	\item[---] macro block row (8 rows of 8 cells) / macro block column (8 columns of 8 cells)
+	\item[---] luma vs chroma order
+	\item[---] \textbf{sad}: sum of absolute differences between two blocks
+	\item[---] \textbf{compensated frame}: applies the motion vectors
+	\item[---] \textbf{residuals}: the difference between the original frame and the compensated frame
+\end{itemize}
 
 \subsection{Communication}
+The data flow starts with the current frame and a reference frame. 
+
 \subsection{Agglomeration}
 \subsection{Mapping}
 

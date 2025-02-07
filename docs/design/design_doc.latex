@@ -4,6 +4,8 @@
 \date{2025-02-06}
 \title{Design Doc: Home exam 1 \\ {\large Codec63 Encoder on CUDA --- IN5050}}
 
+\usepackage{graphicx}
+
 \begin{document}
 \maketitle
 
@@ -22,25 +24,61 @@ In order to tackle the problem efficiently and arrive at the most optimal soluti
 His approach splits up the task into a streamlined process, split into four sequential tasks. Roughly speaking, the steps will first identify all the datapoints; the second step will look at their dependencies; the third will decide how to group the tasks and order them; and finally we map each task to the adequate hardware device.
 
 \subsection{Partitioning}
+There are a lot of maths and lookups done throughout the data flow here. We identify meaningful data we will need to optimize around. If we look at these in memory, they may refer to similar/same positions in memory, but have different meanings depending on the transformation process.
+
 \begin{itemize}
-	\item[---] \textbf{reconstructed frame}: the frame after motion compensation (quantized, thus lossy)
-	\item[---] \textbf{residuals}: the difference between the original frame and the reconstructed frame
-	\item[---] \textbf{predicted frame}: the frame predicted using the motion vectors
-	\item[---] \textbf{macro blocks}: 8x8 blocks of pixels
-	\item[---] \textbf{reference frame}: the frame used to predict the current frame
-	\item[---] \textbf{current frame}: the frame being predicted
-	\item[---] \textbf{i-frame}: keyframe, no prediction
+	\item[---] \textbf{Reconstructed frame}: the frame after motion compensation (quantized, thus lossy)
+	\item[---] \textbf{Residuals}: the difference between the original frame and the reconstructed frame
+	\item[---] \textbf{Predicted frame}: the frame predicted using the motion vectors
+	\item[---] \textbf{Macro blocks}: 8x8 blocks of pixels
+	\item[---] \textbf{Reference frame}: the frame used to predict the current frame
+	\item[---] \textbf{Current frame}: the frame being predicted
+	\item[---] \textbf{I-frame}: keyframe, no prediction
 	\item[---] macro block row (8 rows of 8 cells) / macro block column (8 columns of 8 cells)
 	\item[---] luma vs chroma order
-	\item[---] \textbf{sad}: sum of absolute differences between two blocks
-	\item[---] \textbf{compensated frame}: applies the motion vectors
-	\item[---] \textbf{residuals}: the difference between the original frame and the compensated frame
+	\item[---] \textbf{SAD}: sum of absolute differences between two blocks
+	\item[---] \textbf{Compensated frame}: applies the motion vectors
+	\item[---] \textbf{Residuals}: the difference between the original frame and the compensated frame
 \end{itemize}
 
 \subsection{Communication}
-The data flow starts with the current frame and a reference frame. 
+
+\subsubsection{Encoding}
+
+In order to predict the current frame, we need to previously calculate the motion vectors (which depend on the reference frame) and its compensation (which depends on the residuals). In order to know the residuals, we also need to already be able to apply the motion vectors and compare it with the reconstructed previous frame.
+
+To decide which motion vectors should be used during motion estimation, we need to calculate the (very) SAD values, and pick the lowest one. To calculate this, we use the original (reconstructed) frame and the current (predicted) frame.
+
+The motion compensator requires a reconstructed frame (for the reference frame) because the decoder won't have access to the actual image. To do this, we need to calculate the inverse quantization and inverse DCT (requiring to first have applied the DCT and the quantization). This will be very similar to the data we can expect the decoder to use as its input.
+
+Every so often, we also need to completely encode a full frame to mitigate drift due to rounding errors. Usually, we would specify a threshold for values to be too far to be motion-vectorized, but for this assignment we assume life is good and just ignore dealing with i-frames (roughly equivalent to keyframes).
+
+There is no relationship between 8x8 blocks within a frame.
+\subsubsection{Decoding}
+
+During decoding, there are two possibilities. One is that we're on an i-frame, the other being a common frame which requires guesswork. For an i-frame we skip any compensation, and move directly to the inverse DCT calculation. This depends on the predicted value (containing errors) and the residuals (which are smaller in entropy space) correcting the predicted errors.
+
+For the compensation part, we build a reconstruction from the predicted and the residuals.
+
+Another aspect here is that the current frame relies on having calculated the prior frame already to be used as a reference frame (unless we're calculating the i-frame).
+
+\includegraphics[width=0.9\textwidth]{data_flow_c63.png}
 
 \subsection{Agglomeration}
+There are a few ways we can agglomerate tasks. Calculating all the 8x8 blocks simultaneously should be possible, since they are entirely independent, but it's important to be aware of shared memory and cache-lines acting as a bottleneck here.
+
+A question for this point is whether we can keep some of the intermediate calculations for use on posterior frames. It seems reasonable to think that we can send several reference frames at the same time to the GPU, minimizing delay.
+
 \subsection{Mapping}
+When allocating tasks to the different cores, there are two important considerations to take. One being the data dependencies (namely the frames relating to each other) and the capacity of the memory of each core (and total memory of the shared memory).
+
+We see two approaches to parallelization here: one being calculating the 8x8 SAD values in parallel (a quick CPU profiler suggests that this is the slowest part of the code), starting from the frame 0 onwards. The parallelization here will start and stop for each frame.
+
+The other approach, which we preemptively assume will be more efficient, is to boot up all the cores on different i-frames and have the first "round" calculate the frames 0--10 while the next core does 100--110... and so forth. For the next round they'll be working on 11--20 and 111--120, etc.
+
+It is also possible to combine these options. When synchronizing the data back to the CPU, the latter option would create a staggered output until it's all filled up.
+
+Because our GPU is symmetrical, we don't need to consider which core should do what.
+
 
 \end{document}

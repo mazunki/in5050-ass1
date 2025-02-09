@@ -1,6 +1,8 @@
 \documentclass[a4paper,10pt]{article}
 \usepackage[a4paper, margin=2cm]{geometry}
 
+\usepackage{float}
+
 \usepackage{titlesec}
 \titlespacing*{\section}{0pt}{10ex}{3ex}
 \titlespacing*{\subsection}{0pt}{6ex}{2ex}
@@ -80,6 +82,13 @@ The communication phase in the PCAM process identifies the explicit data depende
         \end{itemize}
 \end{itemize}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{data_flow_c63.eps}
+\caption{Data flow diagram showing the relationship between frames}
+\end{figure}
+
+
 \subsection{Agglomeration}
 Given the identified dependencies among tasks in the Codec63 encoding process, we can strategically combine certain tasks to optimize resource utilization and enhance execution efficiency. The main benefit of grouping tasks together is to leverage the locality of data, improving the throughput, and lowering the latency between data transfers. Knowing what data can be grouped together also allows us to know what data can be run concurrently without synchronization.
 
@@ -127,12 +136,6 @@ Mapping tasks onto CUDA cores involves tuning where and how to assign jobs to sp
 
 Effective mapping not only considers the capabilities and limitations of the GPU hardware but also strategically utilizes its features to optimize data processing and flow. Should we prioritize running macroblocks concurrently, or focus on running many I-frame sets simultaneously? A preemptive guess here is that we should avoid running more macroblocks concurrently than would fit in the shared memory.
 
-
-\begin{figure}[ht]
-\centering
-\includegraphics[width=0.9\textwidth]{data_flow_c63.eps}
-\caption{Data flow diagram showing the relationship between frames}
-\end{figure}
 
 \section{Workflow}
 \subsection{Testing and Validation}

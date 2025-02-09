@@ -1,4 +1,11 @@
-\documentclass{article}
+\documentclass[a4paper,10pt]{article}
+\usepackage[a4paper, margin=2cm]{geometry}
+
+\usepackage{titlesec}
+\titlespacing*{\section}{0pt}{10ex}{3ex}
+\titlespacing*{\subsection}{0pt}{6ex}{2ex}
+
+
 
 \author{\{liseej, rolfvh\}@uio.no}
 \date{2025-02-06}
@@ -6,79 +13,149 @@
 
 \usepackage{graphicx}
 
+\usepackage{url}
+\usepackage[authordate,backend=biber,natbib,sortcites]{biblatex-chicago}
+\addbibresource{mybib.bib}
+
+\usepackage[hidelinks]{hyperref}
+
 \begin{document}
 \maketitle
 
-Codec63 is a bastardization of MJPEG which adds support for interframe prediction. It is used as a recreational tool to learn how to do motion prediction and correction as part of IN5050.
-
-Our task is to offload the parallelization of the encoding and decoding to an Nvidia GPU by using CUDA. To do this properly, we need to understand two fundamental concepts:
-\begin{itemize}
-	\item[---] \textbf{Motion Estimation}: A mechanism by which we identify frames which have moved to new location over different frames, storing them as motion vectors. This is a best-effort approach, and can (a.k.a will) introduce errors over time.
-	\item[---] \textbf{Motion Compensation}: Uses the motion vectors to predict how the following frame is going to look like. We only save the difference between these two frames in order to save on space.
-	\item[---] \textbf{Keyframe}: A frame which eliminates any guesswork to compute the real frame. This resets any errors which may accumulate.
-\end{itemize}
+Codec63 is a variant of MJPEG designed to explore advanced video encoding techniques such as motion prediction and compensation (UiO, \citeyear{Codec63Inf5063}), adapted for CUDA to enhance processing on Nvidia GPUs.
 
 \section{PCAM}
-In order to tackle the problem efficiently and arrive at the most optimal solution we could either be gods and just know the correct approach, or use a more realistic iterative solution. One such approach is the PCAM model made by Ian Foster ().%\cite{design-build-parallel-program}).
-
-His approach splits up the task into a streamlined process, split into four sequential tasks. Roughly speaking, the steps will first identify all the datapoints; the second step will look at their dependencies; the third will decide how to group the tasks and order them; and finally we map each task to the adequate hardware device.
+To systematically optimize and parallelize tasks, we mainly apply the PCAM model \parencite{FosterPCAM}, which facilitates a structured analysis and decision-making in parallel computing environments.
 
 \subsection{Partitioning}
-There are a lot of maths and lookups done throughout the data flow here. We identify meaningful data we will need to optimize around. If we look at these in memory, they may refer to similar/same positions in memory, but have different meanings depending on the transformation process.
-
+Partitioning in the context of CUDA involves identifying computational tasks that can be executed in parallel while recognizing the data associated with each task. This step is crucial for optimizing performance by ensuring that each GPU thread has a meaningful workload. Here we detail all possible partitionable units within the Codec63 encoding process:
 \begin{itemize}
-	\item[---] \textbf{Reconstructed frame}: the frame after motion compensation (quantized, thus lossy)
-	\item[---] \textbf{Residuals}: the difference between the original frame and the reconstructed frame
-	\item[---] \textbf{Predicted frame}: the frame predicted using the motion vectors
-	\item[---] \textbf{Macro blocks}: 8x8 blocks of pixels
-	\item[---] \textbf{Reference frame}: the frame used to predict the current frame
-	\item[---] \textbf{Current frame}: the frame being predicted
-	\item[---] \textbf{I-frame}: keyframe, no prediction
-	\item[---] macro block row (8 rows of 8 cells) / macro block column (8 columns of 8 cells)
-	\item[---] luma vs chroma order
-	\item[---] \textbf{SAD}: sum of absolute differences between two blocks
-	\item[---] \textbf{Compensated frame}: applies the motion vectors
-	\item[---] \textbf{Residuals}: the difference between the original frame and the compensated frame
+    \item \textbf{Macroblocks}: Basic units of video processing, each frame is divided into 8x8 blocks of pixels processed independently. Further split into either rows or columns and their underlying YUV samples.
+    \item \textbf{Frames}: Classified into different types based on their role:
+        \begin{itemize}
+            \item \textbf{I-frames}: Fully encoded frames that serve as reference points and do not rely on other frames.
+            \item \textbf{P-frames}: Predicted frames that use data from previous frames to encode only the differences.
+        \end{itemize}
+    \item \textbf{Motion Vectors}, \textbf{Residuals}: Intermediary matrices used to describe the difference between two frames in time in a compressed manner.
+	\item \textbf{Predicted Frame}, and \textbf{Reconstructed Frame}: Refers to different transformations from a given reference frame.
+    \item \textbf{DCT (Discrete Cosine Transform)} and \textbf{Quantization}: Processes applied independently to each macroblock, facilitating compression.
+    \item \textbf{Entropy Coding}: Compresses the quantized data to a smaller bitsize at the frame level. Applied separately to the DCT and Quantization since it's not used during Motion Compensation.
 \end{itemize}
 
+On top of the points listed above, which are crucial for understanding how the codec works, we also need to consider how \textit{hot} each piece of data is, but we choose to omit it here since it's more relevant to mapping.
+
 \subsection{Communication}
+The communication phase in the PCAM process identifies the explicit data dependencies between the partitioned units listed above. This analysis ensures that the implementation considers any interactions without introducing any synchronization or consistency issues.
 
-\subsubsection{Encoding}
+\begin{itemize}
+	\item \textbf{Frame Dependencies}:
+	    \begin{itemize}
+		\item \textbf{I-frames (Intra-coded frames)}: These are independent frames that do not rely on other frames for their data. They are self-contained.
+		\item \textbf{P-frames (Predictive frames)}: Depend on previous frames (either I-frames or preceding P-frames) for reference data to compute motion vectors and residuals.
+        \end{itemize}
 
-In order to predict the current frame, we need to previously calculate the motion vectors (which depend on the reference frame) and its compensation (which depends on the residuals). In order to know the residuals, we also need to already be able to apply the motion vectors and compare it with the reconstructed previous frame.
+    \item \textbf{Macroblock Processing}:
+        \begin{itemize}
+            \item Each macroblock within a frame can be processed independently in terms of motion estimation but requires the reconstructed data from previous frames’ macroblocks to compute motion vectors.
+            \item Residuals for each macroblock are dependent on the original data of the macroblock and the predicted data derived from motion compensation.
+        \end{itemize}
 
-To decide which motion vectors should be used during motion estimation, we need to calculate the (very) SAD values, and pick the lowest one. To calculate this, we use the original (reconstructed) frame and the current (predicted) frame.
+    \item \textbf{Motion Vectors and Residuals}:
+        \begin{itemize}
+			\item Motion vectors for each macroblock rely on the search results from the motion estimation process which compares the current macroblock against corresponding blocks in the reference frame.
+            \item Residual calculation for each macroblock depends on the output from the motion compensation which uses the computed motion vectors.
+        \end{itemize}
 
-The motion compensator requires a reconstructed frame (for the reference frame) because the decoder won't have access to the actual image. To do this, we need to calculate the inverse quantization and inverse DCT (requiring to first have applied the DCT and the quantization). This will be very similar to the data we can expect the decoder to use as its input.
+    \item \textbf{Predicted Frames}:
+        \begin{itemize}
+            \item The construction of a predicted frame is dependent on the availability of motion vectors calculated from the reference frames.
+            \item Each predicted frame serves as a basis for the next P-frame’s motion estimation, linking each frame in a dependency chain.
+        \end{itemize}
 
-Every so often, we also need to completely encode a full frame to mitigate drift due to rounding errors. Usually, we would specify a threshold for values to be too far to be motion-vectorized, but for this assignment we assume life is good and just ignore dealing with i-frames (roughly equivalent to keyframes).
-
-There is no relationship between 8x8 blocks within a frame.
-\subsubsection{Decoding}
-
-During decoding, there are two possibilities. One is that we're on an i-frame, the other being a common frame which requires guesswork. For an i-frame we skip any compensation, and move directly to the inverse DCT calculation. This depends on the predicted value (containing errors) and the residuals (which are smaller in entropy space) correcting the predicted errors.
-
-For the compensation part, we build a reconstruction from the predicted and the residuals.
-
-Another aspect here is that the current frame relies on having calculated the prior frame already to be used as a reference frame (unless we're calculating the i-frame).
-
-\includegraphics[width=0.9\textwidth]{data_flow_c63.png}
+    \item \textbf{Data encoding}:
+        \begin{itemize}
+			\item The \textit{Discrete Cosine Transform} (DCT) of a macroblock is independent in its calculation but requires the actual pixel data from the macroblock itself.
+			\item \textit{Quantization} (of the DCT coefficients) depends on the results from the DCT process and follows directly.
+			\item While the \textit{entropy coding} process can be started independently for different macroblocks, all the macroblocks we're compressing must have finished their quantization.
+        \end{itemize}
+\end{itemize}
 
 \subsection{Agglomeration}
-There are a few ways we can agglomerate tasks. Calculating all the 8x8 blocks simultaneously should be possible, since they are entirely independent, but it's important to be aware of shared memory and cache-lines acting as a bottleneck here.
+Given the identified dependencies among tasks in the Codec63 encoding process, we can strategically combine certain tasks to optimize resource utilization and enhance execution efficiency. The main benefit of grouping tasks together is to leverage the locality of data, improving the throughput, and lowering the latency between data transfers. Knowing what data can be grouped together also allows us to know what data can be run concurrently without synchronization.
 
-A question for this point is whether we can keep some of the intermediate calculations for use on posterior frames. It seems reasonable to think that we can send several reference frames at the same time to the GPU, minimizing delay.
+\begin{itemize}
+	\item \textbf{DCT and Quantization}:
+		Since the output of the Discrete Cosine Transform (DCT) is immediately used by the quantization step, these tasks can be agglomerated into a single operation. Additionally, the intermediate step here is not ever used anywhere else.
+
+	\item \textbf{Macroblock Processing}:
+		Entire macroblock processing, from motion estimation through to entropy coding, can be viewed as a pipeline of dependent tasks. Is there some opportunity for caching between frames through this pipeline?
+
+	\item \textbf{Motion Estimation and Compensation}:
+		Motion estimation and motion compensation are deeply interconnected, with compensation directly using the motion vectors calculated by estimation. Each macroblock calculation is independent to other macroblocks, allowing for calculating them concurrently.
+
+	\item \textbf{I-frames and reference frames}:
+		Since P-frames always relies on using its previous frame as a reference frame, and are reset on I-frames, this is a natural group of tasks requiring a sequential order.
+
+	\item \textbf{Entropy Coding Synchronization}:
+		While entropy coding can start as soon as a macroblock is quantized, synchronizing the start of entropy coding across multiple macroblocks may optimize the utilization of the encoder's resources. Would waiting until an entire batch of macroblocks is ready make better use of the GPU?
+
+\end{itemize}
+
+This focused approach to agglomeration, leveraging the natural dependencies within the Codec63 encoding tasks, aims to streamline operations and enhance overall performance by reducing unnecessary operations and focusing on task
+
+
 
 \subsection{Mapping}
-When allocating tasks to the different cores, there are two important considerations to take. One being the data dependencies (namely the frames relating to each other) and the capacity of the memory of each core (and total memory of the shared memory).
+Mapping tasks onto CUDA cores involves tuning where and how to assign jobs to specific threads and blocks within the GPU architecture. This stage requires us to understand the memory architecture our GPU, where the goal is to eliminate unnecessary overhead, minimize bottlenecks and avoid synchronization waiting.
 
-We see two approaches to parallelization here: one being calculating the 8x8 SAD values in parallel (a quick CPU profiler suggests that this is the slowest part of the code), starting from the frame 0 onwards. The parallelization here will start and stop for each frame.
+\begin{itemize}
+	\item \textbf{Memory Locality}:
+		\begin{itemize}
+			\item \textit{Global Memory Usage}: The global memory is the slowest, but is the only one the GPU can use to communicate with the host. Is there a chance we could write read-only image frames to the constant memory or texture memory?
+			\item \textit{Shared Memory Utilization}: Shared memory exists per block (core). We should keep data which needs to be reused here. Which data, if any, would that be?
+		\end{itemize}
 
-The other approach, which we preemptively assume will be more efficient, is to boot up all the cores on different i-frames and have the first "round" calculate the frames 0--10 while the next core does 100--110... and so forth. For the next round they'll be working on 11--20 and 111--120, etc.
+	\item \textbf{Parallelization of I-frame Processing}:
+		Process I-frames (and their sequential P-frames) independently to maximize throughput, as they do not depend on other frames. This allows for continuous, uninterrupted processing of I-frames across different CUDA cores.
 
-It is also possible to combine these options. When synchronizing the data back to the CPU, the latter option would create a staggered output until it's all filled up.
+	\item \textbf{Concurrent Processing of Macroblocks}:
+		Each macroblock's processing pipeline from motion estimation (ME) to motion compensation (MC) to quantization can be executed independently of others. We can schedule these pipelines across different blocks and streams to achieve high parallelism and reduce waiting times between stages.
 
-Because our GPU is symmetrical, we don't need to consider which core should do what.
+	\item \textbf{Symmetric GPU Architecture}:
+		Since our GPU is symmetric (no difference in instruction sets between cores), we don't need to consider which types of tasks should be assigned to which cores. That said, does running similar instructions across all cores play a role in how effective the hardware can prefetch instructions?
+\end{itemize}
 
+Effective mapping not only considers the capabilities and limitations of the GPU hardware but also strategically utilizes its features to optimize data processing and flow. Should we prioritize running macroblocks concurrently, or focus on running many I-frame sets simultaneously? A preemptive guess here is that we should avoid running more macroblocks concurrently than would fit in the shared memory.
+
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.9\textwidth]{data_flow_c63.eps}
+\caption{Data flow diagram showing the relationship between frames}
+\end{figure}
+
+\section{Workflow}
+\subsection{Testing and Validation}
+Efficiency and accuracy are critical to our project. We aim to ensure that the video output has no degradation compared to the original, while also working to enhance encoding efficiency. The efficiency measurement is the sum of encoding and decoding of a sample raw YUV video.
+
+\begin{itemize}
+    \item \textbf{Video Quality Assurance}: Involves checking for fidelity, color accuracy, and frame integrity to ensure that the encoding process does not introduce noticeable artifacts or errors. Can we expect the output file to be byte-identical?
+	\item \textbf{Performance Profiling}: Using profiling tools to measure the performance of different encoding strategies. For this, we will mainly employ Nsight Systems, which supports our lab's Nvidia Quadro card (unlike the better maintained Nsight Compute software), to monitor and analyze GPU resource usage, identify bottlenecks, and evaluate memory efficiency.
+\end{itemize}
+
+Initial profiling has shown that approximately 70\% of the compute time is consumed by the \texttt{sad\_block\_8x8()} function. This indicates a significant area for potential optimization during motion estimation.
+
+\subsection{Implementation Roadmap}
+To effectively improve our codec's performance, the initial step involves transitioning parts of the code from the CPU to the GPU.
+
+It seems like the natural starting point for code migration is the mentioned \texttt{sad\_block\_8x8()} function. From here, we can also look at the following optimizations:
+
+\begin{itemize}
+    \item \textbf{Optimizing Data Batches}: Segmenting batches of I-frames and their associated P-frames. By processing these frames in intelligently grouped chunks, we may be able to reduce latency and thus increase throughput.
+    \item \textbf{Hardware Utilization}: Fine-tuning the usage of GPU cores and memory resources. This includes adjusting the core counts involved in both of the steps above to enhance overall system performance.
+\end{itemize}
+
+\printbibliography
 
 \end{document}
+

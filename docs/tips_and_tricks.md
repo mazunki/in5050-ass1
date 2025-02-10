@@ -31,3 +31,7 @@
 
 - Build a tree of instruction relationships, parallelize all the loops, figure out the kernel/core/thread/grid/block count
 
+## for the report
+- Write down what didn't work for the report
+- Add graphs for presentation
+

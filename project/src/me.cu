@@ -18,50 +18,65 @@
 
 __global__ void sad_block_8x8_kernel(uint8_t *block1, uint8_t *block2, int stride, int *result)
 {
-  __shared__ int partial_sad[64];
+    __shared__ int partial_sad[64]; // Shared memory for partial sums
 
-  int idx = threadIdx.x;
-  int u = idx % 8;
-  int v = idx / 8;
+    int idx = threadIdx.x;
+    int u = idx % 8;
+    int v = idx / 8;
 
-  if (idx < 64) {
-    partial_sad[idx] = abs(block2[v * stride + u] - block1[v * stride + u]);
-  }
-  __syncthreads();
+    // Load into shared memory to reduce global memory access
+    __shared__ uint8_t shared_block1[64];
+    __shared__ uint8_t shared_block2[64];
 
-  // Parallel reduction
-  for (int s = 32; s > 0; s >>= 1) {
-    if (idx < s) {
-      partial_sad[idx] += partial_sad[idx + s];
-    }
+    shared_block1[idx] = block1[v * stride + u];
+    shared_block2[idx] = block2[v * stride + u];
     __syncthreads();
-  }
 
-  if (idx == 0) {
-    *result = partial_sad[0];
-  }
+    // Compute absolute difference
+    partial_sad[idx] = abs(shared_block2[idx] - shared_block1[idx]);
+    __syncthreads();
+
+    // Parallel reduction using CUDA shuffle (warp reduction)
+    for (int s = 32; s > 0; s >>= 1)
+    {
+        if (idx < s)
+        {
+            partial_sad[idx] += partial_sad[idx + s];
+        }
+        __syncthreads();
+    }
+
+    // Thread 0 writes the final sum
+    if (idx == 0)
+    {
+        atomicAdd(result, partial_sad[0]); // Use atomic operation
+    }
 }
 
 static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result)
 {
-  uint8_t *d_block1, *d_block2;
-  int *d_result;
+    static uint8_t *d_block1 = nullptr, *d_block2 = nullptr;
+    static int *d_result = nullptr;
+    static bool initialized = false;
 
-  cudaMalloc(&d_block1, 64);
-  cudaMalloc(&d_block2, 64);
-  cudaMalloc(&d_result, sizeof(int));
+    // Allocate memory only once
+    if (!initialized)
+    {
+        cudaMalloc(&d_block1, 64);
+        cudaMalloc(&d_block2, 64);
+        cudaMalloc(&d_result, sizeof(int));
+        initialized = true;
+    }
 
-  cudaMemcpy(d_block1, block1, 64, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_block2, block2, 64, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_block1, block1, 64, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_block2, block2, 64, cudaMemcpyHostToDevice);
+    cudaMemset(d_result, 0, sizeof(int)); // Reset result
 
-  sad_block_8x8_kernel<<<1, 64>>>(d_block1, d_block2, stride, d_result);
+    sad_block_8x8_kernel<<<1, 64>>>(d_block1, d_block2, stride, d_result);
 
-  cudaMemcpy(result, d_result, sizeof(int), cudaMemcpyDeviceToHost);
-
-  cudaFree(d_block1);
-  cudaFree(d_block2);
-  cudaFree(d_result);
+    cudaMemcpy(result, d_result, sizeof(int), cudaMemcpyDeviceToHost);
 }
+
 
 
 /* Motion estimation for 8x8 block */

@@ -9,6 +9,8 @@ set(CMAKE_CUDA_HOST_COMPILER "/usr/bin/gcc-13" CACHE STRING "CUDA host compiler"
 
 set(CMAKE_EXE_LINKER_FLAGS "-L/usr/local/cuda/lib64")
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 
 # Set CUDA architectures (modify if needed)
 if(EXISTS "/etc/nv_tegra_release")

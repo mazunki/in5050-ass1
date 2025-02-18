@@ -10,25 +10,24 @@ commit() {
 
 rebuild() {
 	echo rebuilding
-	pushd /home/in5050-g01/in5050-ass1/project/build
+	cd /home/in5050-g01/in5050-ass1/project/build
 	git pull
 	make
-	popd
 }
 
 deploy() {
 	echo deploying
-	pushd /home/in5050-g01/in5050-ass1/project/workdir
+	cd /home/in5050-g01/in5050-ass1/project/workdir
 	git pull
 	scp c63* in5050-2016-10:ass1/build/
-	popd
 }
 
 profile() {
 	echo profiling
-	mkdir /home/in5050-g01/in5050-ass1/project/workdir
-	pushd /home/in5050-g01/in5050-ass1/project/workdir
+	mkdir -p /home/in5050-g01/in5050-ass1/project/workdir
+	cd /home/in5050-g01/in5050-ass1/project/workdir
 	nsys profile -o report.nsys-rep -- ../build/c63enc -h 288 -w 352 -o output -f 128 /home/in5050-g01/assets/foreman.yuv
+	cd
 	rm -r /home/in5050-g01/in5050-ass1/project/workdir
 }
 

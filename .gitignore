@@ -1,8 +1,14 @@
 # editor files
 \#*\#
 
+perf.data
+perf
+output
+*.old
 
 # build artifacts
 /project/build
 /project/.cache
 /project/workdir
+bin
+

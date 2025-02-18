@@ -8,17 +8,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
-#include <math.h>
-#include <stdlib.h>
+#include <cuda_runtime.h>
 
 #include "me.h"
 #include "tables.h"
 
-#include <cuda_runtime.h>
-#include <stdio.h>
-#include <limits.h>
-
-#define BLOCK_SIZE 16  // Define block size for CUDA threads
+#define BLOCK_SIZE_X 16
+#define BLOCK_SIZE_Y 16
 
 __device__ int sad_block_8x8(uint8_t *orig, uint8_t *ref, int w) {
     int sad = 0;
@@ -32,44 +28,49 @@ __device__ int sad_block_8x8(uint8_t *orig, uint8_t *ref, int w) {
 
 __global__ void me_block_8x8_cuda(uint8_t *orig, uint8_t *ref, int w, int h,
                                   int mb_x, int mb_y, int range, int *best_mv_x, int *best_mv_y) {
-    int tx = threadIdx.x + blockIdx.x * blockDim.x;  // Candidate motion vector X
-    int ty = threadIdx.y + blockIdx.y * blockDim.y;  // Candidate motion vector Y
+    int tx = threadIdx.x;
+    int ty = threadIdx.y;
+    int bx = blockIdx.x;
+    int by = blockIdx.y;
 
-    if (tx >= range * 2 || ty >= range * 2) return; // Ensure we stay within bounds
-
-    int left = max(0, mb_x * 8 - range);
-    int top = max(0, mb_y * 8 - range);
-    int right = min(w - 8, mb_x * 8 + range);
-    int bottom = min(h - 8, mb_y * 8 + range);
-
-    if (tx + left >= right || ty + top >= bottom) return; // Out of bounds check
-
-    int my = mb_y * 8;
     int mx = mb_x * 8;
+    int my = mb_y * 8;
 
-    int sad = sad_block_8x8(orig + my * w + mx, ref + (ty + top) * w + (tx + left), w);
+    int left = max(0, mx - range);
+    int top = max(0, my - range);
+    int right = min(w - 8, mx + range);
+    int bottom = min(h - 8, my + range);
 
-    __shared__ int best_sad[BLOCK_SIZE][BLOCK_SIZE];
-    __shared__ int best_x[BLOCK_SIZE][BLOCK_SIZE];
-    __shared__ int best_y[BLOCK_SIZE][BLOCK_SIZE];
+    int search_x = left + bx * BLOCK_SIZE_X + tx;
+    int search_y = top + by * BLOCK_SIZE_Y + ty;
 
-    best_sad[threadIdx.y][threadIdx.x] = sad;
-    best_x[threadIdx.y][threadIdx.x] = tx + left - mx;
-    best_y[threadIdx.y][threadIdx.x] = ty + top - my;
+    if (search_x >= right || search_y >= bottom) return;
+
+    __shared__ int best_sad[BLOCK_SIZE_X * BLOCK_SIZE_Y];
+    __shared__ int best_x[BLOCK_SIZE_X * BLOCK_SIZE_Y];
+    __shared__ int best_y[BLOCK_SIZE_X * BLOCK_SIZE_Y];
+
+    int tid = ty * BLOCK_SIZE_X + tx;
+    best_sad[tid] = INT_MAX;
+
+    if (search_x < right && search_y < bottom) {
+        int sad = sad_block_8x8(orig + my * w + mx, ref + search_y * w + search_x, w);
+        best_sad[tid] = sad;
+        best_x[tid] = search_x - mx;
+        best_y[tid] = search_y - my;
+    }
 
     __syncthreads();
 
-    // Reduction to find minimum SAD
-    if (threadIdx.x == 0 && threadIdx.y == 0) {
+    // Parallel reduction within the block
+    if (tid == 0) {
         int min_sad = INT_MAX;
         int min_x = 0, min_y = 0;
-        for (int i = 0; i < BLOCK_SIZE; i++) {
-            for (int j = 0; j < BLOCK_SIZE; j++) {
-                if (best_sad[i][j] < min_sad) {
-                    min_sad = best_sad[i][j];
-                    min_x = best_x[i][j];
-                    min_y = best_y[i][j];
-                }
+        for (int i = 0; i < BLOCK_SIZE_X * BLOCK_SIZE_Y; i++) {
+            if (best_sad[i] < min_sad) {
+                min_sad = best_sad[i];
+                min_x = best_x[i];
+                min_y = best_y[i];
             }
         }
         atomicMin(best_mv_x, min_x);
@@ -78,8 +79,7 @@ __global__ void me_block_8x8_cuda(uint8_t *orig, uint8_t *ref, int w, int h,
 }
 
 void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
-    uint8_t *orig, uint8_t *ref, int color_component)
-{
+    uint8_t *orig, uint8_t *ref, int color_component) {
     int range = cm->me_search_range;
     if (color_component > 0) { range /= 2; }
 
@@ -92,8 +92,9 @@ void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
     cudaMemset(d_best_mv_x, 0, sizeof(int));
     cudaMemset(d_best_mv_y, 0, sizeof(int));
 
-    dim3 blockSize(BLOCK_SIZE, BLOCK_SIZE);
-    dim3 gridSize((range * 2 + BLOCK_SIZE - 1) / BLOCK_SIZE, (range * 2 + BLOCK_SIZE - 1) / BLOCK_SIZE);
+    dim3 blockSize(BLOCK_SIZE_X, BLOCK_SIZE_Y);
+    dim3 gridSize((range * 2 + BLOCK_SIZE_X - 1) / BLOCK_SIZE_X,
+                  (range * 2 + BLOCK_SIZE_Y - 1) / BLOCK_SIZE_Y);
 
     me_block_8x8_cuda<<<gridSize, blockSize>>>(orig, ref, w, h, mb_x, mb_y, range, d_best_mv_x, d_best_mv_y);
 

@@ -26,8 +26,10 @@ deploy() {
 
 profile() {
 	echo profiling
-	cd /home/in5050-g01/in5050-ass1/project/workdir
+	mkdir /home/in5050-g01/in5050-ass1/project/workdir
+	pushd /home/in5050-g01/in5050-ass1/project/workdir
 	nsys profile -o report.nsys-rep -- ../build/c63enc -h 288 -w 352 -o output -f 128 /home/in5050-g01/assets/foreman.yuv
+	rm -r /home/in5050-g01/in5050-ass1/project/workdir
 }
 
 newreport() {

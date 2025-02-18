@@ -8,15 +8,17 @@ commit() {
 }
 
 rebuild() {
-	cd /home/in5050-g01/in5050-ass1/project/build
+	pushd /home/in5050-g01/in5050-ass1/project/build
 	git pull
 	make
+	popd
 }
 
 deploy() {
-	cd /home/in5050-g01/in5050-ass1/project/workdir
+	pushd /home/in5050-g01/in5050-ass1/project/workdir
 	git pull
 	scp c63* in5050-2016-10:ass1/build/
+	popd
 }
 
 profile() {

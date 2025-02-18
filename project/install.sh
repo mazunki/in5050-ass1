@@ -22,11 +22,14 @@ deploy() {
 }
 
 profile() {
-	echo profiling
+	echo updating git
 
 	workdir=/home/in5050-g01/in5050-ass1/project/workdir
 	mkdir -p "${workdir}"
 	cd "${workdir}"
+	git pull
+
+	echo profiling
 	nsys profile -o report.nsys-rep -- ../build/c63enc -h 288 -w 352 -o output -f 128 /home/in5050-g01/assets/foreman.yuv
 	cd
 	# rm -r "${workdir}"

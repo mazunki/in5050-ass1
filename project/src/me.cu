@@ -13,8 +13,8 @@
 #include "me.h"
 #include "tables.h"
 
-#define BLOCK_SIZE_X 16
-#define BLOCK_SIZE_Y 16
+#define BLOCK_SIZE_X 1
+#define BLOCK_SIZE_Y 32
 
 __device__ int sad_block_8x8(uint8_t *orig, uint8_t *ref, int w) {
     int sad = 0;

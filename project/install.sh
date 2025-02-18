@@ -17,17 +17,19 @@ rebuild() {
 
 deploy() {
 	echo deploying
-	scp /home/in5050-g01/in5050-ass1/project/build/c63* in5050-2016-10:in5050-ass1/project/build
+	scp /home/in5050-g01/in5050-ass1/project/build/c63* in5050-2016-10:/home/in5050-g01/in5050-ass1/project/build/
 	
 }
 
 profile() {
 	echo profiling
-	mkdir -p /home/in5050-g01/in5050-ass1/project/workdir
-	cd /home/in5050-g01/in5050-ass1/project/workdir
+
+	workdir=/home/in5050-g01/in5050-ass1/project/workdir
+	mkdir -p "${workdir}"
+	cd "${workdir}"
 	nsys profile -o report.nsys-rep -- ../build/c63enc -h 288 -w 352 -o output -f 128 /home/in5050-g01/assets/foreman.yuv
 	cd
-	rm -r /home/in5050-g01/in5050-ass1/project/workdir
+	# rm -r "${workdir}"
 }
 
 newreport() {

@@ -33,10 +33,10 @@ profile() {
 newreport() {
 	echo new report
 	echo remote in5050 rebuild deploy
-	ssh in5050 sh -c 'cd /home/in5050-g01/in5050-ass1/project && ./install.sh rebuild deploy'
+	ssh in5050 /home/in5050-g01/in5050-ass1/project/install.sh rebuild deploy
 
 	echo remote in5050-gpu profile
-	ssh in5050-gpu sh -c 'cd /home/in5050-g01/in5050-ass1/project && ./install.sh profile'
+	ssh in5050-gpu /home/in5050-g01/in5050-ass1/project/install.sh profile
 
 	echo getting report
 	scp in5050-gpu:/home/in5050-g01/ass1/workdir/report.nsys-rep .

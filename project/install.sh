@@ -17,9 +17,8 @@ rebuild() {
 
 deploy() {
 	echo deploying
-	cd /home/in5050-g01/in5050-ass1/project/workdir
-	git pull
-	scp c63* in5050-2016-10:ass1/build/
+	scp /home/in5050-g01/in5050-ass1/project/build/c63* in5050-2016-10:in5050-ass1/project/build
+	
 }
 
 profile() {

@@ -20,7 +20,7 @@ set(CMAKE_C_FLAGS_RELEASE "-O1 -fno-tree-vectorize  -fno-omit-frame-pointer")
 
 # Make sure Debug mode flags are similar to Release mode flags
 set(CMAKE_C_FLAGS_DEBUG "-g -O1 -fno-tree-vectorize -fno-omit-frame-pointer")
-set(CMAKE_CUDA_FLAGS "-gencode arch=compute_50,code=sm_50")
+set(CMAKE_CUDA_FLAGS "-gencode arch=compute_50,code=sm_50 -fno-omit-frame-pointer")
 
 # CMake configures Makefiles for discrete GPUs, but it doesn't do it
 # for integrated GPUs like the Tegra. Pick the right compute capabilities

@@ -23,8 +23,7 @@ profile() {
 	nsys profile -o report.nsys-rep -- ../build/c63enc -h 288 -w 352 -o output -f 128 /home/in5050-g01/assets/foreman.yuv
 }
 
-all() {
-	commit
+newreport() {
 	ssh in5050 sh -c 'cd /home/in5050-g01/ass1/project && ./install.sh rebuild deploy'
 	ssh in5050-gpu sh -c 'cd /home/in5050-g01/ass1/project && ./install.sh profile'
 	scp in5050-gpu:/home/in5050-g01/ass1/workdir/report.nsys-rep .
@@ -35,8 +34,9 @@ for target; do
 		rebuild) rebuild ;;
 		deploy) deploy ;;
 		profile) profile ;;
-		all) all ;;
 		commit) commit ;;
+		newreport) newreport ;;
+		all) commit && newreport ;;
 		*) exit 1 ;;
 	esac
 done

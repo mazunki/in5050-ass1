@@ -41,7 +41,7 @@ newreport() {
 	ssh in5050-gpu /home/in5050-g01/in5050-ass1/project/install.sh profile
 
 	echo getting report
-	scp in5050-gpu:/home/in5050-g01/ass1/workdir/report.nsys-rep .
+	scp in5050-gpu:/home/in5050-g01/in5050-ass1/project/workdir/report.nsys-rep .
 }
 
 for target; do

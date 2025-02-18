@@ -1,7 +1,8 @@
 #!/bin/sh
+set -e
 
 commit() {
-	git add src/ include/
+	git add src/ include/ CMakeLists.txt install.sh
 	git commit -m 'test commit'
 	git push
 }

@@ -18,39 +18,25 @@
 
 __global__ void sad_block_8x8_kernel(uint8_t *block1, uint8_t *block2, int stride, int *result)
 {
-    __shared__ int partial_sad[64]; // Shared memory for partial sums
-
+    // Each thread processes one pixel difference
     int idx = threadIdx.x;
     int u = idx % 8;
     int v = idx / 8;
 
-    // Load into shared memory to reduce global memory access
-    __shared__ uint8_t shared_block1[64];
-    __shared__ uint8_t shared_block2[64];
+    // Compute absolute difference directly
+    int sad_value = abs(block2[v * stride + u] - block1[v * stride + u]);
 
-    shared_block1[idx] = block1[v * stride + u];
-    shared_block2[idx] = block2[v * stride + u];
-    __syncthreads();
-
-    // Compute absolute difference
-    partial_sad[idx] = abs(shared_block2[idx] - shared_block1[idx]);
-    __syncthreads();
-
-    // Parallel reduction using CUDA shuffle (warp reduction)
+    // Perform warp-level reduction (no __syncthreads() needed within a warp)
     for (int s = 32; s > 0; s >>= 1)
     {
-        if (idx < s)
-        {
-            partial_sad[idx] += partial_sad[idx + s];
-        }
-        __syncthreads();
+        sad_value += __shfl_down_sync(0xFFFFFFFF, sad_value, s);
     }
 
-    // Thread 0 writes the final sum
+    // First thread writes final result
     if (idx == 0)
     {
-        atomicAdd(result, partial_sad[0]); // Use atomic operation
-    }
+        atomicAdd(result, sad_value);
+}
 }
 
 static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result)

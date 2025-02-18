@@ -14,20 +14,55 @@
 #include "me.h"
 #include "tables.h"
 
-static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result)
+#include <cuda_runtime.h>
+
+__global__ void sad_block_8x8_kernel(uint8_t *block1, uint8_t *block2, int stride, int *result)
 {
-  int u, v;
+  __shared__ int partial_sad[64];
 
-  *result = 0;
+  int idx = threadIdx.x;
+  int u = idx % 8;
+  int v = idx / 8;
 
-  for (v = 0; v < 8; ++v)
-  {
-    for (u = 0; u < 8; ++u)
-    {
-      *result += abs(block2[v*stride+u] - block1[v*stride+u]);
+  if (idx < 64) {
+    partial_sad[idx] = abs(block2[v * stride + u] - block1[v * stride + u]);
+  }
+  __syncthreads();
+
+  // Parallel reduction
+  for (int s = 32; s > 0; s >>= 1) {
+    if (idx < s) {
+      partial_sad[idx] += partial_sad[idx + s];
     }
+    __syncthreads();
+  }
+
+  if (idx == 0) {
+    *result = partial_sad[0];
   }
 }
+
+static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result)
+{
+  uint8_t *d_block1, *d_block2;
+  int *d_result;
+
+  cudaMalloc(&d_block1, 64);
+  cudaMalloc(&d_block2, 64);
+  cudaMalloc(&d_result, sizeof(int));
+
+  cudaMemcpy(d_block1, block1, 64, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_block2, block2, 64, cudaMemcpyHostToDevice);
+
+  sad_block_8x8_kernel<<<1, 64>>>(d_block1, d_block2, stride, d_result);
+
+  cudaMemcpy(result, d_result, sizeof(int), cudaMemcpyDeviceToHost);
+
+  cudaFree(d_block1);
+  cudaFree(d_block2);
+  cudaFree(d_result);
+}
+
 
 /* Motion estimation for 8x8 block */
 static void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y,

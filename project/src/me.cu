@@ -27,8 +27,7 @@ static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *res
 }
 
 /* Motion estimation for 8x8 block */
-// TODO: rename w => padw, h => padh
-static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *orig, uint8_t *ref, int w, int h, int range) {
+static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *orig, uint8_t *ref, int padw, int padh, int range) {
 	int left = mb_x * 8 - range;
 	int top = mb_y * 8 - range;
 	int right = mb_x * 8 + range;
@@ -37,8 +36,8 @@ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *ori
 	/* Make sure we are within bounds of reference frame. TODO: Support partial frame bounds. */
 	if (left < 0) { left = 0; }
 	if (top < 0) { top = 0; }
-	if (right > (w - 8)) { right = w - 8; }
-	if (bottom > (h - 8)) { bottom = h - 8; }
+	if (right > (padw - 8)) { right = padw - 8; }
+	if (bottom > (padh - 8)) { bottom = padh - 8; }
 
 	int x, y;
 
@@ -50,7 +49,7 @@ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *ori
 	for (y = top; y < bottom; ++y) {
 		for (x = left; x < right; ++x) {
 			int sad;
-			sad_block_8x8(orig + my*w+mx, ref + y*w+x, w, &sad);
+			sad_block_8x8(orig + (my*padw + mx), ref + (y*padw + x), padw, &sad);
 
 			/* printf("(%4d,%4d) - %d\n", x, y, sad); */
 

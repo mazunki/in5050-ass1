@@ -36,10 +36,14 @@ runner() {
 
 pipeline() {
 	echo "[PIPELINE] Updating build server..."
-	runner  "test ! -e '${BUSYFILE}' && touch '${BUSYFILE}' || true"
-	builder "test ! -e '${BUSYFILE}' && touch '${BUSYFILE}' || true"
+	runner  "test ! -e '${BUSYFILE}'"
+	builder "test ! -e '${BUSYFILE}'"
+
+	runner  "touch '${BUSYFILE}'"
+	builder "touch '${BUSYFILE}'"
 
 	(set -x; rsync -av --progress . "${BUILDER}:${PROJECT_ROOT}/")
+	(set -x; rsync -av --progress . "${RUNNER}:${PROJECT_ROOT}/")
 
 	echo "[PIPELINE] updating cmake..."
 	builder "cd '${PROJECT_ROOT}' && rm -rf build && cmake -B build -DCMAKE_TOOLCHAIN_FILE=in5050-toolchain.cmake"
@@ -66,13 +70,15 @@ pipeline() {
 	echo "[PIPELINE] encoding..."
 	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_ENC}' -- ${cmd_enc}"
 
-	# echo "[PIPELINE] decoding..."
-	# runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_DEC}' -- ${cmd_dec}"
+	echo "[PIPELINE] decoding..."
+	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_DEC}' -- ${cmd_dec}"
 
-	# echo "[PIPELINE] fetching profiling report..."
-	# (set -x; rsync -av --progress "$RUNNER:$WORKDIR/" "workdir/")
-	# runner  "rm -f '${BUSYFILE}'"
-	# builder "rm -f '${BUSYFILE}'"
+	echo "[PIPELINE] fetching profiling report..."
+	(set -x; rsync -av --progress "$RUNNER:$WORKDIR/" "workdir/")
+	
+	echo "[PIPELINE] cleaning up"
+	runner  "rm -f '${BUSYFILE}'"
+	builder "rm -f '${BUSYFILE}'"
 }
 
 if [ $# -ge 1 ] && [ "$1" = "--clean" ]; then

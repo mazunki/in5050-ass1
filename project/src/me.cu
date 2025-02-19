@@ -69,29 +69,28 @@ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *ori
 	mb->use_mv = 1;
 }
 
+void c63_motion_estimate_kernel(uint8_t *d_orig, uint8_t *d_recons, macroblock *d_mbs, int width, int height, int range) {
+    for (int mb_y = 0; mb_y < height / 8; ++mb_y) {
+        for (int mb_x = 0; mb_x < width / 8; ++mb_x) {
+            macroblock *mb = &d_mbs[mb_y * (width / 8) + mb_x];
+            me_block_8x8(mb, mb_x, mb_y, d_orig, d_recons, width, height, range);
+        }
+    }
+}
+
 void c63_motion_estimate(struct c63_common *cm) {
 	/* Compare this frame with previous reconstructed frame */
-	int mb_x, mb_y;
+	int width = cm->padw[Y_COMPONENT];
+	int height = cm->padh[Y_COMPONENT];
 	int range = cm->me_search_range;
 
 	/* Luma */
-	for (mb_y = 0; mb_y < cm->mb_rows; ++mb_y) {
-		for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x) {
-			struct macroblock *mb = &cm->curframe->mbs[Y_COMPONENT][mb_y * cm->padw[Y_COMPONENT] / 8 + mb_x];
-			me_block_8x8(mb, mb_x, mb_y, cm->curframe->orig->Y, cm->refframe->recons->Y, cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], range);
-		}
-	}
+	c63_motion_estimate_kernel(cm->curframe->orig->Y, cm->refframe->recons->Y, cm->curframe->mbs[Y_COMPONENT], width, height, range);
 
 	/* Chroma */
 	range /= 2;  // quarter resolution
-	for (mb_y = 0; mb_y < cm->mb_rows / 2; ++mb_y) {
-		for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x) {
-			struct macroblock *mb_U = &cm->curframe->mbs[U_COMPONENT][mb_y * cm->padw[U_COMPONENT] / 8 + mb_x];
-			struct macroblock *mb_V = &cm->curframe->mbs[V_COMPONENT][mb_y * cm->padw[V_COMPONENT] / 8 + mb_x];
-			me_block_8x8(mb_U, mb_x, mb_y, cm->curframe->orig->U, cm->refframe->recons->U, cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], range);
-			me_block_8x8(mb_V, mb_x, mb_y, cm->curframe->orig->V, cm->refframe->recons->V, cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], range);
-		}
-	}
+	c63_motion_estimate_kernel(cm->curframe->orig->U, cm->refframe->recons->U, cm->curframe->mbs[U_COMPONENT], cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], range);
+	c63_motion_estimate_kernel(cm->curframe->orig->V, cm->refframe->recons->V, cm->curframe->mbs[V_COMPONENT], cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], range);
 }
 
 /* Motion compensation for 8x8 block */

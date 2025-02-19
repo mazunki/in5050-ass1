@@ -9,6 +9,6 @@ output
 # build artifacts
 /project/build
 /project/.cache
-/project/workdir
+workdir*
 bin
 

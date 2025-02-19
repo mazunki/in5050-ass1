@@ -36,8 +36,8 @@ runner() {
 
 pipeline() {
 	echo "[PIPELINE] Updating build server..."
-	runner  "test ! -e '${BUSYFILE}' && touch '${BUSYFILE}'"
-	builder "test ! -e '${BUSYFILE}' && touch '${BUSYFILE}'"
+	runner  "test ! -e '${BUSYFILE}' && touch '${BUSYFILE}' || true"
+	builder "test ! -e '${BUSYFILE}' && touch '${BUSYFILE}' || true"
 
 	(set -x; rsync -av --progress . "${BUILDER}:${PROJECT_ROOT}/")
 
@@ -55,20 +55,24 @@ pipeline() {
 	echo "[PIPELINE] running profiling on gpu machine..."
 	echo "[PIPELINE] wiping workdir..."
 	runner "rm -rf '${WORKDIR}'"
-	runner "mkdir '${WORKDIR}'"
+	runner "mkdir -p '${WORKDIR}'"
+	
+
+	cmd_enc="${BUILD_DIR}/c63enc -h '${VID_HEIGHT}' -w '${VID_WIDTH}' ${VID_FLAGS} -o '${VID_OUTPUT_ENC}' '${VID_INPUT}'"
+	cmd_dec="${BUILD_DIR}/c63dec '${VID_OUTPUT_ENC}' '${VID_OUTPUT_DEC}'"
+	echo ${cmd_dec}
+
 
 	echo "[PIPELINE] encoding..."
-	cmd_enc="${BUILD_DIR}/c63enc -h '${VID_HEIGHT}' -w '${VID_WIDTH}' ${VID_FLAGS} -o '${VID_OUTPUT_ENC}' '${VID_INPUT}'"
 	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_ENC}' -- ${cmd_enc}"
 
-	echo "[PIPELINE] decoding..."
-	cmd_dec="${BUILD_DIR}/c63dec '${VID_OUTPUT_ENC}' '${VID_OUTPUT_DEC}'"
-	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_DEC}' -- ${cmd_dec}"
+	# echo "[PIPELINE] decoding..."
+	# runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_DEC}' -- ${cmd_dec}"
 
-	echo "[PIPELINE] fetching profiling report..."
-	(set -x; rsync -av --progress "$RUNNER:$WORKDIR/" "workdir/")
-	runner  "rm -f '${BUSYFILE}'"
-	builder "rm -f '${BUSYFILE}'"
+	# echo "[PIPELINE] fetching profiling report..."
+	# (set -x; rsync -av --progress "$RUNNER:$WORKDIR/" "workdir/")
+	# runner  "rm -f '${BUSYFILE}'"
+	# builder "rm -f '${BUSYFILE}'"
 }
 
 if [ $# -ge 1 ] && [ "$1" = "--clean" ]; then

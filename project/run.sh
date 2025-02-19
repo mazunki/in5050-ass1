@@ -65,10 +65,10 @@ pipeline() {
 
 
 	echo "[PIPELINE] encoding..."
-	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_ENC}' -- ${cmd_enc}"
+	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_ENC}' -- ${cmd_enc}" || { echo "runner encoder failed with errno $?"; true; }
 
 	echo "[PIPELINE] decoding..."
-	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_DEC}' -- ${cmd_dec}"
+	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_DEC}' -- ${cmd_dec}" || { echo "runner decoder failed with errno $?"; true; }
 
 	echo "[PIPELINE] fetching profiling report..."
 	(set -x; rsync -av --progress "$RUNNER:$WORKDIR/" "workdir/")

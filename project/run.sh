@@ -11,7 +11,8 @@ ASSETS_DIR="/home/in5050-g01/assets"
 REPORT_FILE="report.nsys-rep"
 
 BUILDER="${PROJECT_USER}@in5050"
-RUNNER="${PROJECT_USER}@in5050-2016-10"
+# RUNNER="${PROJECT_USER}@in5050-2016-10"
+RUNNER="${PROJECT_USER}@in5050-2014-11"
 
 VID_HEIGHT="288"
 VID_WIDTH="352"
@@ -48,7 +49,7 @@ pipeline() {
 	builder "cd '${BUILD_DIR}' && make"
 
 	echo "[PIPELINE] syncing build machine with gpu machine..."
-	# (set -x; rsync -av --progress "${BUILDER}:${BUILD_DIR}/" "$RUNNER:${BUILD_DIR}/")
+	runner "mkdir -p '${WORKDIR}'"
 	(set -x; ssh "${BUILDER}" "rsync -av --progress '${BUILD_DIR}/' '${RUNNER}:${BUILD_DIR}/'")
 	
 
@@ -66,13 +67,13 @@ pipeline() {
 	echo "[PIPELINE] encoding..."
 	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_ENC}' -- ${cmd_enc}"
 
-	# echo "[PIPELINE] decoding..."
-	# runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_DEC}' -- ${cmd_dec}"
+	echo "[PIPELINE] decoding..."
+	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_DEC}' -- ${cmd_dec}"
 
-	# echo "[PIPELINE] fetching profiling report..."
-	# (set -x; rsync -av --progress "$RUNNER:$WORKDIR/" "workdir/")
-	# runner  "rm -f '${BUSYFILE}'"
-	# builder "rm -f '${BUSYFILE}'"
+	echo "[PIPELINE] fetching profiling report..."
+	(set -x; rsync -av --progress "$RUNNER:$WORKDIR/" "workdir/")
+	runner  "rm -f '${BUSYFILE}'"
+	builder "rm -f '${BUSYFILE}'"
 }
 
 if [ $# -ge 1 ] && [ "$1" = "--clean" ]; then

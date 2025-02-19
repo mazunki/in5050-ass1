@@ -13,7 +13,10 @@ RUNNER="${PROJECT_USER}@in5050-2016-10"
 
 VID_HEIGHT="288"
 VID_WIDTH="352"
-VID_OUTPUT="output"
+VID_OUTPUT_ENC="output.c63"
+VID_OUTPUT_DEC="output"
+REPORT_FILE_ENC="encoding.nsys-rep"
+REPORT_FILE_DEC="decoding.nsys-rep"
 VID_INPUT="${ASSETS_DIR}/foreman.yuv"
 VID_FLAGS="$*"
 
@@ -45,9 +48,16 @@ pipeline() {
 	
 
 	echo "[PIPELINE] running profiling on gpu machine..."
-	cmd="${BUILD_DIR}/c63enc -h '${VID_HEIGHT}' -w '${VID_WIDTH}' ${VID_FLAGS} -o '${VID_OUTPUT}' '${VID_INPUT}'"
 	runner "rm -rf '${WORKDIR}' && mkdir '${WORKDIR}'"
-	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE}' -- ${cmd}"
+
+	echo "[PIPELINE] running profiling on gpu machine..."
+	echo "[PIPELINE] encoding..."
+	cmd_enc="${BUILD_DIR}/c63enc -h '${VID_HEIGHT}' -w '${VID_WIDTH}' ${VID_FLAGS} -o '${VID_OUTPUT_ENC}' '${VID_INPUT}'"
+	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_ENC}' -- ${cmd_enc}"
+
+	echo "[PIPELINE] decoding..."
+	cmd_dec="${BUILD_DIR}/c63dec '${VID_OUTPUT_ENC}' '${VID_OUTPUT_DEC}'"
+	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_DEC}' -- ${cmd_dec}"
 
 	echo "[PIPELINE] Fetching profiling report..."
 	(set -x; rsync -av --progress "$RUNNER:$WORKDIR/" "workdir/")

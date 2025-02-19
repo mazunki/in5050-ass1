@@ -4,8 +4,7 @@
 
 #include <inttypes.h>
 
-uint8_t yquanttbl_def[64] __attribute__((aligned(16))) =
-{
+uint8_t yquanttbl_def[64] __attribute__((aligned(16))) = {
   16, 11, 12, 14, 12, 10, 16, 14,
   13, 14, 18, 17, 16, 19, 24, 40,
   26, 24, 22, 22, 24, 49, 35, 37,
@@ -16,8 +15,7 @@ uint8_t yquanttbl_def[64] __attribute__((aligned(16))) =
   121, 112, 100, 120, 92, 101, 103, 99
 };
 
-uint8_t uvquanttbl_def[64] __attribute__((aligned(16))) =
-{
+uint8_t uvquanttbl_def[64] __attribute__((aligned(16))) = {
   17, 18, 18, 24, 21, 24, 47, 26,
   26, 47, 99, 66, 56, 66, 99, 99,
   99, 99, 99, 99, 99, 99, 99, 99,
@@ -28,32 +26,27 @@ uint8_t uvquanttbl_def[64] __attribute__((aligned(16))) =
   99, 99, 99, 99, 99, 99, 99, 99
 };
 
-uint16_t DCVLC[2][12] =
-{
+uint16_t DCVLC[2][12] = {
   {0, 2, 3, 4, 5, 6, 14, 30, 62, 126, 254, 510},
   {0, 1, 2, 6, 14, 30, 62, 126, 254, 510, 1022, 2046}
 };
 
-uint8_t DCVLC_Size[2][12] =
-{
+uint8_t DCVLC_Size[2][12] = {
   {2, 3, 3, 3, 3, 3, 4, 5, 6, 7, 8, 9},
   {2, 2, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
 };
 
-uint8_t DCVLC_num_by_length[2][16] =
-{
+uint8_t DCVLC_num_by_length[2][16] = {
   {0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0},
   {0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0}
 };
 
-uint8_t DCVLC_data[2][12] =
-{
+uint8_t DCVLC_data[2][12] = {
   {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11},
   {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
 };
 
-uint16_t ACVLC[2][16][11] =
-{
+uint16_t ACVLC[2][16][11] = {
   {
     {10, 0, 1, 4, 11, 26, 120, 248, 1014, 65410, 65410},
     {0, 12, 27, 121, 502, 2038, 65412, 65413, 65414, 65415, 65416},
@@ -92,8 +85,7 @@ uint16_t ACVLC[2][16][11] =
   }
 };
 
-uint8_t ACVLC_Size[2][16][11] =
-{
+uint8_t ACVLC_Size[2][16][11] = {
   {
     {4, 2, 2, 3, 4, 5, 7, 8, 10, 16, 16},
     {0, 4, 5, 7, 9, 11, 16, 16, 16, 16, 16},
@@ -132,14 +124,12 @@ uint8_t ACVLC_Size[2][16][11] =
   }
 };
 
-uint8_t ACVLC_num_by_length[2][16] =
-{
+uint8_t ACVLC_num_by_length[2][16] = {
   {0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 125},
   {0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 119}
 };
 
-uint8_t ACVLC_data[2][162] =
-{
+uint8_t ACVLC_data[2][162] = {
   {
     0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12,
     0x21, 0x31, 0x41, 0x06, 0x13, 0x51, 0x61, 0x07,
@@ -188,14 +178,12 @@ uint8_t ACVLC_data[2][162] =
   }
 };
 
-/* These are just copied from DC. Should be generated from relevant
-   statistics */
+/* These are just copied from DC. Should be generated from relevant statistics */
 uint16_t MVVLC[8] = {0, 2, 3, 4, 5, 6, 14, 30};
 
 uint8_t MVVLC_Size[8] = {2, 3, 3, 3, 3, 3, 4, 5};
 
-uint8_t zigzag_U[64] =
-{
+uint8_t zigzag_U[64] = {
   0,
   1, 0,
   0, 1, 2,
@@ -213,8 +201,7 @@ uint8_t zigzag_U[64] =
   7,
 };
 
-uint8_t zigzag_V[64] =
-{
+uint8_t zigzag_V[64] = {
   0,
   0, 1,
   2, 1, 0,
@@ -232,8 +219,7 @@ uint8_t zigzag_V[64] =
   7,
 };
 
-float dctlookup[8][8] =
-{
+float dctlookup[8][8] = {
   {1.0f,  0.980785f,  0.923880f,  0.831470f,  0.707107f,  0.555570f,  0.382683f,  0.195090f, },
   {1.0f,  0.831470f,  0.382683f, -0.195090f, -0.707107f, -0.980785f, -0.923880f, -0.555570f, },
   {1.0f,  0.555570f, -0.382683f, -0.980785f, -0.707107f,  0.195090f,  0.923880f,  0.831470f, },
@@ -243,3 +229,4 @@ float dctlookup[8][8] =
   {1.0f, -0.831470f,  0.382683f,  0.195090f, -0.707107f,  0.980785f, -0.923880f,  0.555570f, },
   {1.0f, -0.980785f,  0.923880f, -0.831470f,  0.707107f, -0.555570f,  0.382683f, -0.195090f, },
 };
+

@@ -15,8 +15,10 @@
 #include "tables.h"
 
 #define MACROBLOCK_SIZE 8
+#define CUDA_THREADS_PER_BLOCK_X 16
+#define CUDA_THREADS_PER_BLOCK_Y 16
 
-static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result) {
+__device__ static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result) {
 	int u, v;
 
 	*result = 0;
@@ -29,7 +31,7 @@ static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *res
 }
 
 /* Motion estimation for 8x8 block */
-static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *orig, uint8_t *ref, int padw, int padh, int range) {
+__device__ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *orig, uint8_t *ref, int padw, int padh, int range) {
 	int left = mb_x * MACROBLOCK_SIZE - range;
 	int top = mb_y * MACROBLOCK_SIZE - range;
 	int right = mb_x * MACROBLOCK_SIZE + range;
@@ -71,12 +73,13 @@ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *ori
 	mb->use_mv = 1;
 }
 
-void c63_motion_estimate_kernel(uint8_t *d_orig, uint8_t *d_recons, macroblock *d_mbs, int width, int height, int range) {
-    for (int mb_y = 0; mb_y < height / MACROBLOCK_SIZE; ++mb_y) {
-        for (int mb_x = 0; mb_x < width / MACROBLOCK_SIZE; ++mb_x) {
-            macroblock *mb = &d_mbs[mb_y * (width / MACROBLOCK_SIZE) + mb_x];
-            me_block_8x8(mb, mb_x, mb_y, d_orig, d_recons, width, height, range);
-        }
+__global__ void c63_motion_estimate_kernel(uint8_t *d_orig, uint8_t *d_recons, macroblock *d_mbs, int width, int height, int range) {
+    int mb_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int mb_y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (mb_x < width / MACROBLOCK_SIZE && mb_y < height / MACROBLOCK_SIZE) {
+        int mb_index = mb_y * (width / MACROBLOCK_SIZE) + mb_x;
+        me_block_8x8(&d_mbs[mb_index], mb_x, mb_y, d_orig, d_recons, width, height, range);
     }
 }
 
@@ -85,14 +88,23 @@ void c63_motion_estimate(struct c63_common *cm) {
 	int width = cm->padw[Y_COMPONENT];
 	int height = cm->padh[Y_COMPONENT];
 	int range = cm->me_search_range;
+	int macroblocks_count = (width / MACROBLOCK_SIZE) * (height / MACROBLOCK_SIZE);
 
-	/* Luma */
-	c63_motion_estimate_kernel(cm->curframe->orig->Y, cm->refframe->recons->Y, cm->curframe->mbs[Y_COMPONENT], width, height, range);
+	macroblock *d_mbs;
+	cudaMalloc((void **)&d_mbs, macroblocks_count*sizeof(macroblock));
 
-	/* Chroma */
-	range /= 2;  // quarter resolution
-	c63_motion_estimate_kernel(cm->curframe->orig->U, cm->refframe->recons->U, cm->curframe->mbs[U_COMPONENT], cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], range);
-	c63_motion_estimate_kernel(cm->curframe->orig->V, cm->refframe->recons->V, cm->curframe->mbs[V_COMPONENT], cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], range);
+	cudaMemcpy(cm->curframe->orig->d_Y, cm->refframe->orig->Y, width * height, cudaMemcpyHostToDevice);
+	cudaMemcpy(cm->curframe->recons->d_Y, cm->curframe->recons->Y, width * height, cudaMemcpyHostToDevice);
+
+	/* Luma and Chroma is offset internally */
+	dim3 blockSize(CUDA_THREADS_PER_BLOCK_X, CUDA_THREADS_PER_BLOCK_Y);
+	dim3 gridSize(width / MACROBLOCK_SIZE, height / MACROBLOCK_SIZE);
+	c63_motion_estimate_kernel<<<gridSize, blockSize>>>(cm->curframe->orig->d_Y, cm->curframe->recons->d_Y, d_mbs, width, height, range);
+
+	cudaDeviceSynchronize();
+	cudaMemcpy(cm->curframe->mbs[Y_COMPONENT], d_mbs, macroblocks_count*sizeof(macroblock), cudaMemcpyDeviceToHost);
+
+	cudaFree(d_mbs);
 }
 
 /* Motion compensation for 8x8 block */

@@ -71,7 +71,7 @@ pipeline() {
 	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_DEC}' -- ${cmd_dec}" || { echo "runner decoder failed with errno $?"; true; }
 
 	echo "[PIPELINE] fetching profiling report..."
-	(set -x; rsync -av --progress "$RUNNER:$WORKDIR/" "workdir/")
+	(set -x; rsync -av --progress "$RUNNER:$WORKDIR/" "../workdir/")
 	runner  "rm -f '${BUSYFILE}'"
 	builder "rm -f '${BUSYFILE}'"
 }

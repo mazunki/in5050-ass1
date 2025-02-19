@@ -39,6 +39,7 @@ void destroy_frame(struct frame *f)
 struct frame* create_frame(struct c63_common *cm, yuv_t *image)
 {
   frame *f = (frame*)malloc(sizeof(struct frame));
+  if (!f) return NULL;
 
   f->orig = image;
 

@@ -11,114 +11,94 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include <cuda_runtime.h>
 #include "me.h"
 #include "tables.h"
 
-static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result)
+__device__ void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result)
 {
-  int u, v;
-
-  *result = 0;
-
-  for (v = 0; v < 8; ++v)
-  {
-    for (u = 0; u < 8; ++u)
+    int u, v;
+    *result = 0;
+    for (v = 0; v < 8; ++v)
     {
-      *result += abs(block2[v*stride+u] - block1[v*stride+u]);
+        for (u = 0; u < 8; ++u)
+        {
+            *result += abs(block2[v * stride + u] - block1[v * stride + u]);
+        }
     }
-  }
 }
 
-/* Motion estimation for 8x8 block */
-static void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
-    uint8_t *orig, uint8_t *ref, int color_component)
+__device__ void me_block_8x8(uint8_t *d_orig, uint8_t *d_recons, macroblock *d_mb, int mb_x, int mb_y, int width, int height)
 {
-  struct macroblock *mb =
-    &cm->curframe->mbs[color_component][mb_y*cm->padw[color_component]/8+mb_x];
+    int range = 16; // Assuming a fixed search range
+    int left = mb_x * 8 - range;
+    int top = mb_y * 8 - range;
+    int right = mb_x * 8 + range;
+    int bottom = mb_y * 8 + range;
 
-  int range = cm->me_search_range;
+    if (left < 0) left = 0;
+    if (top < 0) top = 0;
+    if (right > (width - 8)) right = width - 8;
+    if (bottom > (height - 8)) bottom = height - 8;
 
-  /* Quarter resolution for chroma channels. */
-  if (color_component > 0) { range /= 2; }
+    int mx = mb_x * 8;
+    int my = mb_y * 8;
+    int best_sad = INT_MAX;
+    int best_mv_x = 0, best_mv_y = 0;
 
-  int left = mb_x * 8 - range;
-  int top = mb_y * 8 - range;
-  int right = mb_x * 8 + range;
-  int bottom = mb_y * 8 + range;
-
-  int w = cm->padw[color_component];
-  int h = cm->padh[color_component];
-
-  /* Make sure we are within bounds of reference frame. TODO: Support partial
-     frame bounds. */
-  if (left < 0) { left = 0; }
-  if (top < 0) { top = 0; }
-  if (right > (w - 8)) { right = w - 8; }
-  if (bottom > (h - 8)) { bottom = h - 8; }
-
-  int x, y;
-
-  int mx = mb_x * 8;
-  int my = mb_y * 8;
-
-  int best_sad = INT_MAX;
-
-  for (y = top; y < bottom; ++y)
-  {
-    for (x = left; x < right; ++x)
+    for (int y = top; y < bottom; ++y)
     {
-      int sad;
-      sad_block_8x8(orig + my*w+mx, ref + y*w+x, w, &sad);
-
-      /* printf("(%4d,%4d) - %d\n", x, y, sad); */
-
-      if (sad < best_sad)
-      {
-        mb->mv_x = x - mx;
-        mb->mv_y = y - my;
-        best_sad = sad;
-      }
+        for (int x = left; x < right; ++x)
+        {
+            int sad;
+            sad_block_8x8(d_orig + my * width + mx, d_recons + y * width + x, width, &sad);
+            if (sad < best_sad)
+            {
+                best_mv_x = x - mx;
+                best_mv_y = y - my;
+                best_sad = sad;
+            }
+        }
     }
-  }
 
-  /* Here, there should be a threshold on SAD that checks if the motion vector
-     is cheaper than intraprediction. We always assume MV to be beneficial */
+    d_mb->mv_x = best_mv_x;
+    d_mb->mv_y = best_mv_y;
+    d_mb->use_mv = 1;
+}
 
-  /* printf("Using motion vector (%d, %d) with SAD %d\n", mb->mv_x, mb->mv_y,
-     best_sad); */
+__global__ void c63_motion_estimate_kernel(
+    uint8_t *d_orig, uint8_t *d_recons, macroblock *d_mbs, int width, int height)
+{
+    int mb_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int mb_y = blockIdx.y * blockDim.y + threadIdx.y;
 
-  mb->use_mv = 1;
+    if (mb_x < width / 8 && mb_y < height / 8) {
+        int mb_index = mb_y * (width / 8) + mb_x;
+        me_block_8x8(d_orig, d_recons, &d_mbs[mb_index], mb_x, mb_y, width, height);
+    }
 }
 
 void c63_motion_estimate(struct c63_common *cm)
 {
-  /* Compare this frame with previous reconstructed frame */
-  int mb_x, mb_y;
+    int width = cm->ypw;
+    int height = cm->yph;
+    dim3 blockSize(8, 8);
+    dim3 gridSize(width / 8, height / 8);
 
-  /* Luma */
-  for (mb_y = 0; mb_y < cm->mb_rows; ++mb_y)
-  {
-    for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x)
-    {
-      me_block_8x8(cm, mb_x, mb_y, cm->curframe->orig->Y,
-          cm->refframe->recons->Y, Y_COMPONENT);
-    }
-  }
+    macroblock *d_mbs;
+    cudaMalloc((void **)&d_mbs, (width / 8) * (height / 8) * sizeof(macroblock));
 
-  /* Chroma */
-  for (mb_y = 0; mb_y < cm->mb_rows / 2; ++mb_y)
-  {
-    for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x)
-    {
-      me_block_8x8(cm, mb_x, mb_y, cm->curframe->orig->U,
-          cm->refframe->recons->U, U_COMPONENT);
-      me_block_8x8(cm, mb_x, mb_y, cm->curframe->orig->V,
-          cm->refframe->recons->V, V_COMPONENT);
-    }
-  }
+    cudaMemcpy(cm->curframe->recons->d_Y, cm->curframe->recons->Y, width * height, cudaMemcpyHostToDevice);
+    cudaMemcpy(cm->curframe->orig->d_Y, cm->curframe->orig->Y, width * height, cudaMemcpyHostToDevice);
+
+    c63_motion_estimate_kernel<<<gridSize, blockSize>>>(cm->curframe->orig->d_Y, cm->curframe->recons->d_Y, d_mbs, width, height);
+    cudaDeviceSynchronize();
+
+    cudaMemcpy(cm->curframe->mbs[Y_COMPONENT], d_mbs, (width / 8) * (height / 8) * sizeof(macroblock), cudaMemcpyDeviceToHost);
+    cudaFree(d_mbs);
 }
 
-/* Motion compensation for 8x8 block */
+
 static void mc_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
     uint8_t *predicted, uint8_t *ref, int color_component)
 {
@@ -172,3 +152,4 @@ void c63_motion_compensate(struct c63_common *cm)
     }
   }
 }
+

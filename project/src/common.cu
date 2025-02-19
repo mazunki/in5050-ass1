@@ -21,6 +21,7 @@ struct frame* create_frame(struct c63_common *cm, yuv_t *image)
 
   f->orig = image;
 
+  // cpu
   f->recons = (yuv_t*)malloc(sizeof(yuv_t));
   f->recons->Y = (uint8_t*)malloc(frame_size);
   f->recons->U = (uint8_t*)malloc(chroma_size);
@@ -43,6 +44,19 @@ struct frame* create_frame(struct c63_common *cm, yuv_t *image)
   f->mbs[V_COMPONENT] =
     (macroblock*)calloc(num_blocks_chroma, sizeof(struct macroblock));
 
+  // gpu
+  cudaMalloc((void **)&f->recons->d_Y, frame_size);
+  cudaMalloc((void **)&f->recons->d_U, chroma_size);
+  cudaMalloc((void **)&f->recons->d_V, chroma_size);
+
+  cudaMalloc((void **)&f->predicted->d_Y, frame_size);
+  cudaMalloc((void **)&f->predicted->d_U, chroma_size);
+  cudaMalloc((void **)&f->predicted->d_V, chroma_size);
+
+  cudaMalloc((void **)&f->residuals->d_Ydct, frame_size * sizeof(int16_t));
+  cudaMalloc((void **)&f->residuals->d_Udct, chroma_size * sizeof(int16_t));
+  cudaMalloc((void **)&f->residuals->d_Vdct, chroma_size * sizeof(int16_t));
+
   return f;
 }
 
@@ -51,6 +65,7 @@ void destroy_frame(struct frame *f)
   /* First frame doesn't have a reconstructed frame to destroy */
   if (!f) { return; }
 
+  // cpu
   free(f->recons->Y);
   free(f->recons->U);
   free(f->recons->V);
@@ -69,6 +84,19 @@ void destroy_frame(struct frame *f)
   free(f->mbs[Y_COMPONENT]);
   free(f->mbs[U_COMPONENT]);
   free(f->mbs[V_COMPONENT]);
+  
+  // gpu
+  cudaFree(f->recons->d_Y);
+  cudaFree(f->recons->d_U);
+  cudaFree(f->recons->d_V);
+
+  cudaFree(f->predicted->d_Y);
+  cudaFree(f->predicted->d_U);
+  cudaFree(f->predicted->d_V);
+
+  cudaFree(f->residuals->d_Ydct);
+  cudaFree(f->residuals->d_Udct);
+  cudaFree(f->residuals->d_Vdct);
 
   free(f);
 }

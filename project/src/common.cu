@@ -9,33 +9,6 @@
 
 #include "common.h"
 
-void destroy_frame(struct frame *f)
-{
-  /* First frame doesn't have a reconstructed frame to destroy */
-  if (!f) { return; }
-
-  free(f->recons->Y);
-  free(f->recons->U);
-  free(f->recons->V);
-  free(f->recons);
-
-  free(f->residuals->Ydct);
-  free(f->residuals->Udct);
-  free(f->residuals->Vdct);
-  free(f->residuals);
-
-  free(f->predicted->Y);
-  free(f->predicted->U);
-  free(f->predicted->V);
-  free(f->predicted);
-
-  free(f->mbs[Y_COMPONENT]);
-  free(f->mbs[U_COMPONENT]);
-  free(f->mbs[V_COMPONENT]);
-
-  free(f);
-}
-
 struct frame* create_frame(struct c63_common *cm, yuv_t *image)
 {
   frame *f = (frame*)malloc(sizeof(struct frame));
@@ -71,6 +44,33 @@ struct frame* create_frame(struct c63_common *cm, yuv_t *image)
     (macroblock*)calloc(num_blocks_chroma, sizeof(struct macroblock));
 
   return f;
+}
+
+void destroy_frame(struct frame *f)
+{
+  /* First frame doesn't have a reconstructed frame to destroy */
+  if (!f) { return; }
+
+  free(f->recons->Y);
+  free(f->recons->U);
+  free(f->recons->V);
+  free(f->recons);
+
+  free(f->residuals->Ydct);
+  free(f->residuals->Udct);
+  free(f->residuals->Vdct);
+  free(f->residuals);
+
+  free(f->predicted->Y);
+  free(f->predicted->U);
+  free(f->predicted->V);
+  free(f->predicted);
+
+  free(f->mbs[Y_COMPONENT]);
+  free(f->mbs[U_COMPONENT]);
+  free(f->mbs[V_COMPONENT]);
+
+  free(f);
 }
 
 void dump_image(yuv_t *image, int w, int h, FILE *fp)

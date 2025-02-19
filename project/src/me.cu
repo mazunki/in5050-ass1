@@ -14,27 +14,21 @@
 #include "me.h"
 #include "tables.h"
 
-static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result)
-{
+static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result) {
   int u, v;
 
   *result = 0;
 
-  for (v = 0; v < 8; ++v)
-  {
-    for (u = 0; u < 8; ++u)
-    {
+  for (v = 0; v < 8; ++v) {
+    for (u = 0; u < 8; ++u) {
       *result += abs(block2[v*stride+u] - block1[v*stride+u]);
     }
   }
 }
 
 /* Motion estimation for 8x8 block */
-static void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
-    uint8_t *orig, uint8_t *ref, int color_component)
-{
-  struct macroblock *mb =
-    &cm->curframe->mbs[color_component][mb_y*cm->padw[color_component]/8+mb_x];
+static void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y, uint8_t *orig, uint8_t *ref, int color_component) {
+  struct macroblock *mb = &cm->curframe->mbs[color_component][mb_y*cm->padw[color_component]/8+mb_x];
 
   int range = cm->me_search_range;
 
@@ -63,17 +57,14 @@ static void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
 
   int best_sad = INT_MAX;
 
-  for (y = top; y < bottom; ++y)
-  {
-    for (x = left; x < right; ++x)
-    {
+  for (y = top; y < bottom; ++y) {
+    for (x = left; x < right; ++x) {
       int sad;
       sad_block_8x8(orig + my*w+mx, ref + y*w+x, w, &sad);
 
       /* printf("(%4d,%4d) - %d\n", x, y, sad); */
 
-      if (sad < best_sad)
-      {
+      if (sad < best_sad) {
         mb->mv_x = x - mx;
         mb->mv_y = y - my;
         best_sad = sad;
@@ -90,26 +81,21 @@ static void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
   mb->use_mv = 1;
 }
 
-void c63_motion_estimate(struct c63_common *cm)
-{
+void c63_motion_estimate(struct c63_common *cm) {
   /* Compare this frame with previous reconstructed frame */
   int mb_x, mb_y;
 
   /* Luma */
-  for (mb_y = 0; mb_y < cm->mb_rows; ++mb_y)
-  {
-    for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x)
-    {
+  for (mb_y = 0; mb_y < cm->mb_rows; ++mb_y) {
+    for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x) {
       me_block_8x8(cm, mb_x, mb_y, cm->curframe->orig->Y,
           cm->refframe->recons->Y, Y_COMPONENT);
     }
   }
 
   /* Chroma */
-  for (mb_y = 0; mb_y < cm->mb_rows / 2; ++mb_y)
-  {
-    for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x)
-    {
+  for (mb_y = 0; mb_y < cm->mb_rows / 2; ++mb_y) {
+    for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x) {
       me_block_8x8(cm, mb_x, mb_y, cm->curframe->orig->U,
           cm->refframe->recons->U, U_COMPONENT);
       me_block_8x8(cm, mb_x, mb_y, cm->curframe->orig->V,
@@ -119,11 +105,8 @@ void c63_motion_estimate(struct c63_common *cm)
 }
 
 /* Motion compensation for 8x8 block */
-static void mc_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
-    uint8_t *predicted, uint8_t *ref, int color_component)
-{
-  struct macroblock *mb =
-    &cm->curframe->mbs[color_component][mb_y*cm->padw[color_component]/8+mb_x];
+static void mc_block_8x8(struct c63_common *cm, int mb_x, int mb_y, uint8_t *predicted, uint8_t *ref, int color_component) {
+  struct macroblock *mb = &cm->curframe->mbs[color_component][mb_y*cm->padw[color_component]/8+mb_x];
 
   if (!mb->use_mv) { return; }
 
@@ -137,34 +120,27 @@ static void mc_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
   /* Copy block from ref mandated by MV */
   int x, y;
 
-  for (y = top; y < bottom; ++y)
-  {
-    for (x = left; x < right; ++x)
-    {
+  for (y = top; y < bottom; ++y) {
+    for (x = left; x < right; ++x) {
       predicted[y*w+x] = ref[(y + mb->mv_y) * w + (x + mb->mv_x)];
     }
   }
 }
 
-void c63_motion_compensate(struct c63_common *cm)
-{
+void c63_motion_compensate(struct c63_common *cm) {
   int mb_x, mb_y;
 
   /* Luma */
-  for (mb_y = 0; mb_y < cm->mb_rows; ++mb_y)
-  {
-    for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x)
-    {
+  for (mb_y = 0; mb_y < cm->mb_rows; ++mb_y) {
+    for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x) {
       mc_block_8x8(cm, mb_x, mb_y, cm->curframe->predicted->Y,
           cm->refframe->recons->Y, Y_COMPONENT);
     }
   }
 
   /* Chroma */
-  for (mb_y = 0; mb_y < cm->mb_rows / 2; ++mb_y)
-  {
-    for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x)
-    {
+  for (mb_y = 0; mb_y < cm->mb_rows / 2; ++mb_y) {
+    for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x) {
       mc_block_8x8(cm, mb_x, mb_y, cm->curframe->predicted->U,
           cm->refframe->recons->U, U_COMPONENT);
       mc_block_8x8(cm, mb_x, mb_y, cm->curframe->predicted->V,

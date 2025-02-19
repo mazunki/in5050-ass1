@@ -5,10 +5,18 @@ PROJECT_USER=in5050-g01
 PROJECT_ROOT="/home/${PROJECT_USER}/in5050-ass1/project"
 BUILD_DIR="${PROJECT_ROOT}/build"
 WORKDIR="${PROJECT_ROOT}/workdir"
+ASSETS_DIR="/home/in5050-g01/assets"
 REPORT_FILE="report.nsys-rep"
 
 BUILDER="${PROJECT_USER}@in5050"
 RUNNER="${PROJECT_USER}@in5050-2016-10"
+
+VID_HEIGHT="288"
+VID_WIDTH="352"
+VID_OUTPUT="output"
+VID_INPUT="${ASSETS_DIR}/foreman.yuv"
+VID_FLAGS=""
+VID_FLAGS="${VID_FLAGS} -f 128"
 
 cd "$(dirname "$0")"
 
@@ -38,7 +46,7 @@ pipeline() {
 	
 
 	echo "[PIPELINE] running profiling on gpu machine..."
-	cmd="${BUILD_DIR}/c63enc -h 288 -w 352 -o output -f 128 /home/in5050-g01/assets/foreman.yuv"
+	cmd="${BUILD_DIR}/c63enc -h '${VID_HEIGHT}' -w '${VID_WIDTH}' ${VID_FLAGS} -o "${VID_OUTPUT}" "${VID_INPUT}""
 	runner "rm -rf '${WORKDIR}' && mkdir '${WORKDIR}'"
 	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE}' -- ${cmd}"
 

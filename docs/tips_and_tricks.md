@@ -35,3 +35,9 @@
 - Write down what didn't work for the report
 - Add graphs for presentation
 
+
+# profiler
+- markers
+- changing dct/idct allowed, but no extra points
+- changing from 2d table to 1d would be faster, but we're not allowed
+

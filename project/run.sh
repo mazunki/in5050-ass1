@@ -5,6 +5,8 @@ PROJECT_USER=in5050-g01
 PROJECT_ROOT="/home/${PROJECT_USER}/in5050-ass1/project"
 BUILD_DIR="${PROJECT_ROOT}/build"
 WORKDIR="${PROJECT_ROOT}/workdir"
+BUSYFILE="${PROJECT_ROOT}/.busy"
+
 ASSETS_DIR="/home/in5050-g01/assets"
 REPORT_FILE="report.nsys-rep"
 
@@ -18,7 +20,7 @@ VID_OUTPUT_DEC="output"
 REPORT_FILE_ENC="encoding.nsys-rep"
 REPORT_FILE_DEC="decoding.nsys-rep"
 VID_INPUT="${ASSETS_DIR}/foreman.yuv"
-VID_FLAGS="$*"
+VID_FLAGS="$@"
 
 cd "$(dirname "$0")"
 
@@ -34,6 +36,9 @@ runner() {
 
 pipeline() {
 	echo "[PIPELINE] Updating build server..."
+	runner  "test ! -e '${BUSYFILE}' && touch '${BUSYFILE}'"
+	builder "test ! -e '${BUSYFILE}' && touch '${BUSYFILE}'"
+
 	(set -x; rsync -av --progress . "${BUILDER}:${PROJECT_ROOT}/")
 
 	echo "[PIPELINE] updating cmake..."
@@ -48,9 +53,10 @@ pipeline() {
 	
 
 	echo "[PIPELINE] running profiling on gpu machine..."
-	runner "rm -rf '${WORKDIR}' && mkdir '${WORKDIR}'"
+	echo "[PIPELINE] wiping workdir..."
+	runner "rm -rf '${WORKDIR}'"
+	runner "mkdir '${WORKDIR}'"
 
-	echo "[PIPELINE] running profiling on gpu machine..."
 	echo "[PIPELINE] encoding..."
 	cmd_enc="${BUILD_DIR}/c63enc -h '${VID_HEIGHT}' -w '${VID_WIDTH}' ${VID_FLAGS} -o '${VID_OUTPUT_ENC}' '${VID_INPUT}'"
 	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_ENC}' -- ${cmd_enc}"
@@ -59,9 +65,19 @@ pipeline() {
 	cmd_dec="${BUILD_DIR}/c63dec '${VID_OUTPUT_ENC}' '${VID_OUTPUT_DEC}'"
 	runner "cd '${WORKDIR}' && nsys profile -o '${REPORT_FILE_DEC}' -- ${cmd_dec}"
 
-	echo "[PIPELINE] Fetching profiling report..."
+	echo "[PIPELINE] fetching profiling report..."
 	(set -x; rsync -av --progress "$RUNNER:$WORKDIR/" "workdir/")
+	runner  "rm -f '${BUSYFILE}'"
+	builder "rm -f '${BUSYFILE}'"
 }
+
+if [ $# -ge 1 ] && [ "$1" = "--clean" ]; then
+	runner  "rm -f '${BUSYFILE}'"
+	builder "rm -f '${BUSYFILE}'"
+
+	shift
+	exec "$0" "$@"
+fi
 
 pipeline
 

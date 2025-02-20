@@ -13,6 +13,7 @@
 
 #include "me.h"
 #include "tables.h"
+#include "common.h"
 
 #define MACROBLOCK_SIZE 8
 
@@ -37,17 +38,12 @@ static int sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride)
 static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
     uint8_t *orig, uint8_t *ref, int padw, int padh, int range)
 {
-  int left = mb_x * MACROBLOCK_SIZE - range;
-  int top = mb_y * MACROBLOCK_SIZE - range;
-  int right = mb_x * MACROBLOCK_SIZE + range;
-  int bottom = mb_y * MACROBLOCK_SIZE + range;
-
   /* Make sure we are within bounds of reference frame. TODO: Support partial
      frame bounds. */
-  if (left < 0) { left = 0; }
-  if (top < 0) { top = 0; }
-  if (right > (padw - MACROBLOCK_SIZE)) { right = padw - MACROBLOCK_SIZE; }
-  if (bottom > (padh - MACROBLOCK_SIZE)) { bottom = padh - MACROBLOCK_SIZE; }
+  int left   = MAX(mb_x * MACROBLOCK_SIZE - range, 0);
+  int top    = MAX(mb_y * MACROBLOCK_SIZE - range, 0);
+  int right  = MIN(mb_x * MACROBLOCK_SIZE + range, padw - MACROBLOCK_SIZE);
+  int bottom = MIN(mb_y * MACROBLOCK_SIZE + range, padh - MACROBLOCK_SIZE);
 
   int x, y;
 

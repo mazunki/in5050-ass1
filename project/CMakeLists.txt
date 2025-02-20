@@ -1,68 +1,56 @@
-
 cmake_minimum_required(VERSION 3.14)
 
-# Project setup
-project(codec63-g01
-  VERSION 1.0
-  DESCRIPTION "CMake configuration file for Codec63 in C"
-  LANGUAGES C CUDA
-)
+project(Codec63
+    VERSION 3.0
+    DESCRIPTION "CMake configuration file for Codec63 in CUDA"
+    LANGUAGES CUDA C)
 
-set(CMAKE_CUDA_HOST_COMPILER clang)
+# if(NOT CMAKE_C_COMPILER_ID STREQUAL GNU)
+#   message(FATAL_ERROR "please compile with gcc")  # <- nvcc works best with gcc
+# endif()
 
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_EXTENSIONS ON)
-
+# Use CUDA standard (project-wide setting)
 set(CMAKE_CUDA_STANDARD 11)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
+# Overwrite default -O3 flag for Release mode
 set(CMAKE_C_FLAGS_RELEASE "-O1 -fno-tree-vectorize")
 set(CMAKE_C_FLAGS_DEBUG "-g -O1 -fno-tree-vectorize")
-set(CMAKE_BUILD_TYPE Debug)
-# set(CMAKE_BUILD_TYPE Release)  # <- for speeds
 
-# add_compile_options(-Wall -Wextra -Wpedantic)
-# add_compile_options(-Werror -Wno-error=unused-parameter)
+# Include directories
+include_directories(${CMAKE_SOURCE_DIR}/include)
+set(CMAKE_CUDA_INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/include)
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if (CMAKE_C_COMPILER_ID STREQUAL GNU)
-  message(FATAL "don't use gcc please")
-endif()
 
-# set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=sm_50 -O2")  # Modify sm_50 if needed
-set(CMAKE_CUDA_ARCHITECTURES "all-major")
-
-include_directories(include)
-
-# common
+# Library for shared functionality
 add_library(c63 STATIC
-    src/quantdct.cu
-    src/tables.cu
-    src/io.cu
-    src/common.cu
-    src/me.cu
+    src/quantdct.cu include/quantdct.h
+    src/tables.cu include/tables.h
+    src/io.cu include/io.h
+    src/common.cu include/common.h
+    src/me.cu include/me.h
 )
+# target_include_directories(c63 PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_compile_options(c63 PUBLIC -I${CMAKE_SOURCE_DIR}/include)
 
 
-# encoder
+# Encoder executable
 add_executable(c63enc
-    src/c63enc.cu
-    src/c63_write.cu
+    src/c63enc.cu include/c63.h
+    src/c63_write.cu include/c63_write.h
 )
 target_link_libraries(c63enc c63 m)
 
-# decoder
+# Decoder executable
 add_executable(c63dec
-  src/c63dec.cu
+	src/c63dec.cu include/c63.h
 )
 target_link_libraries(c63dec c63 m)
 
-
-# Prediction mode (optional, used for debugging)
+# Prediction executable
 add_executable(c63pred
-  src/c63dec.cu
+	src/c63dec.cu include/c63.h
 )
 target_link_libraries(c63pred c63 m)
 target_compile_options(c63pred PUBLIC -DC63_PRED)

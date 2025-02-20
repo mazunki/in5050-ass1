@@ -104,11 +104,9 @@ __host__ void c63_motion_estimate(struct c63_common *cm)
 
   /* Luma */
   c63_motion_estimate_kernel<<<grid_size, block_size>>>(cm->curframe->orig->Y, cm->refframe->recons->Y, cm->curframe->mbs[Y_COMPONENT], cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], range);
-  CUDA_CHECK(cudaDeviceSynchronize());
 
   /* Chroma */
   c63_motion_estimate_kernel<<<grid_size, block_size>>>(cm->curframe->orig->U, cm->refframe->recons->U, cm->curframe->mbs[U_COMPONENT], cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], range);
-  CUDA_CHECK(cudaDeviceSynchronize());
 
   c63_motion_estimate_kernel<<<grid_size, block_size>>>(cm->curframe->orig->V, cm->refframe->recons->V, cm->curframe->mbs[V_COMPONENT], cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], range);
   CUDA_CHECK(cudaDeviceSynchronize());

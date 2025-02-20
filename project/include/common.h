@@ -5,6 +5,16 @@
 
 #include "c63.h"
 
+#define CUDA_CHECK(call)                                                      \
+    {                                                                         \
+        cudaError_t err = call;                                               \
+        if (err != cudaSuccess) {                                             \
+            fprintf(stderr, "CUDA Error: %s (file %s, line %d)\n",            \
+                    cudaGetErrorString(err), __FILE__, __LINE__);             \
+            exit(err);                                                        \
+        }                                                                     \
+    }
+
 // Declarations
 struct frame* create_frame(struct c63_common *cm, yuv_t *image);
 

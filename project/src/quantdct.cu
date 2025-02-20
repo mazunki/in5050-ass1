@@ -18,15 +18,15 @@
 static void dct_2d( const float* in, float* out )
 {
     //Loop through all elements of the block
-    for(int v = 0; v < 8; v++)
+    for (int v = 0; v < 8; v++)
     {
-        for(int u = 0; u < 8; u++)
+        for (int u = 0; u < 8; u++)
         {
             /* Compute the DCT */
             float dct = 0;
-            for(int y = 0; y < 8; y++)
+            for (int y = 0; y < 8; y++)
             {
-                for(int x = 0; x < 8; x++)
+                for (int x = 0; x < 8; x++)
                 {
                     dct += in[y*8+x] * dctlookup[x][u] * dctlookup[y][v];
                 }
@@ -40,15 +40,15 @@ static void dct_2d( const float* in, float* out )
 static void idct_2d( const float* in, float* out )
 {
     //Loop through all elements of the block
-    for(int v = 0; v < 8; v++)
+    for (int v = 0; v < 8; v++)
     {
-        for(int u = 0; u < 8; u++)
+        for (int u = 0; u < 8; u++)
         {
             /* Compute the iDCT */
             float dct = 0;
-            for(int y = 0; y < 8; y++)
+            for (int y = 0; y < 8; y++)
             {
-                for(int x = 0; x < 8; x++)
+                for (int x = 0; x < 8; x++)
                 {
                     dct += in[y*8+x] * dctlookup[u][x] * dctlookup[v][y];
                 }
@@ -115,13 +115,13 @@ static void dct_quant_block_8x8(int16_t *in_data, int16_t *out_data,
   float mb[8*8] __attribute((aligned(16)));
   float mb2[8*8] __attribute((aligned(16)));
 
-  for( int i = 0; i < 64; i++ ) { mb[i] = in_data[i]; }
+  for ( int i = 0; i < 64; i++ ) { mb[i] = in_data[i]; }
 
   dct_2d(mb, mb2);
   scale_block(mb2, mb);
   quantize_block(mb, mb2, quant_tbl);
 
-  for( int i = 0; i < 64; i++ ) { out_data[i] = mb2[i]; }
+  for ( int i = 0; i < 64; i++ ) { out_data[i] = mb2[i]; }
 }
 
 static void dequant_idct_block_8x8(int16_t *in_data, int16_t *out_data,
@@ -130,13 +130,13 @@ static void dequant_idct_block_8x8(int16_t *in_data, int16_t *out_data,
   float mb[8*8] __attribute((aligned(16)));
   float mb2[8*8] __attribute((aligned(16)));
 
-  for( int i = 0; i < 64; i++ ) { mb[i] = in_data[i]; }
+  for ( int i = 0; i < 64; i++ ) { mb[i] = in_data[i]; }
 
   dequantize_block(mb, mb2, quant_tbl);
   scale_block(mb2, mb);
   idct_2d(mb, mb2);
 
-  for( int i = 0; i < 64; i++ ) { out_data[i] = mb2[i]; }
+  for ( int i = 0; i < 64; i++ ) { out_data[i] = mb2[i]; }
 }
 
 static void dequantize_idct_row(int16_t *in_data, uint8_t *prediction, int w, int h,
@@ -147,7 +147,7 @@ static void dequantize_idct_row(int16_t *in_data, uint8_t *prediction, int w, in
   int16_t block[8*8];
 
   /* Perform the dequantization and iDCT */
-  for(x = 0; x < w; x += 8)
+  for (x = 0; x < w; x += 8)
   {
     int i, j;
 
@@ -178,7 +178,7 @@ static void dct_quantize_row(uint8_t *in_data, uint8_t *prediction, int w, int h
   int16_t block[8*8];
 
   /* Perform the DCT and quantization */
-  for(x = 0; x < w; x += 8)
+  for (x = 0; x < w; x += 8)
   {
     int i, j;
 

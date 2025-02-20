@@ -195,7 +195,7 @@ static void read_block(struct c63_common *cm, int16_t *out_data, uint32_t width,
   ++blocknum;
   printf("Dump block %d:\n", blocknum);
 
-  for(i = 0; i < 8; ++i)
+  for (i = 0; i < 8; ++i)
   {
     for (j = 0; j < 8; ++j)
     {
@@ -213,12 +213,12 @@ static void read_interleaved_data_MCU(struct c63_common *cm, int16_t *dct,
 {
   uint32_t i, j, ii, jj;
 
-  for(j = y*v*8; j < (y+1)*v*8; j += 8)
+  for (j = y*v*8; j < (y+1)*v*8; j += 8)
   {
     jj = he-8;
     jj = MIN(j, jj);
 
-    for(i = x*h*8; i < (x+1)*h*8; i += 8)
+    for (i = x*h*8; i < (x+1)*h*8; i += 8)
     {
       ii = wi-8;
       ii = MIN(i, ii);
@@ -237,9 +237,9 @@ void read_interleaved_data(struct c63_common *cm)
   uint32_t vblocks = (uint32_t) (ceil(cm->yph/(float)(8.0f*2)));
 
   /* Write the MCU's interleaved */
-  for(v = 0; v < vblocks; ++v)
+  for (v = 0; v < vblocks; ++v)
   {
-    for(u = 0; u < ublocks; ++u)
+    for (u = 0; u < ublocks; ++u)
     {
       read_interleaved_data_MCU(cm, cm->curframe->residuals->Ydct, cm->ypw,
           cm->yph, YX, YY, u, v, &prev_DC[0], 0, 0);
@@ -357,7 +357,7 @@ int parse_c63_frame(struct c63_common *cm)
     exit(EXIT_FAILURE);
   }
 
-  while(1)
+  while (1)
   {
     int c;
     c = get_byte(cm->e_ctx.fp);
@@ -438,7 +438,7 @@ static void print_help(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-  if(argc < 3 || argc > 3) { print_help(argc, argv); }
+  if (argc < 3 || argc > 3) { print_help(argc, argv); }
 
   FILE *fin = fopen(argv[1], "rb");
   FILE *fout = fopen(argv[2], "wb");
@@ -453,7 +453,7 @@ int main(int argc, char **argv)
   cm->e_ctx.fp = fin;
 
   int framenum = 0;
-  while(!feof(fin))
+  while (!feof(fin))
   {
     printf("Decoding frame %d\n", framenum++);
 

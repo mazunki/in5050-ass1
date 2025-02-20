@@ -233,7 +233,7 @@ static void write_block(struct c63_common *cm, int16_t *in_data, uint32_t width,
 
   printf("Dump block %d:\n", blocknum);
 
-  for(i=0; i<8; ++i)
+  for (i=0; i<8; ++i)
   {
     for (j=0; j<8; ++j)
     {
@@ -252,19 +252,19 @@ static void write_block(struct c63_common *cm, int16_t *in_data, uint32_t width,
   uint8_t size = bit_width(dc);
   put_bits(&cm->e_ctx, DCVLC[cc][size],DCVLC_Size[cc][size]);
 
-  if(dc < 0) { dc = dc - 1; }
+  if (dc < 0) { dc = dc - 1; }
   put_bits(&cm->e_ctx, dc, size);
 
   /* find the last nonzero entry of the ac-coefficients */
-  for(j = 64; j > 1 && !block[j-1]; j--);
+  for (j = 64; j > 1 && !block[j-1]; j--);
 
   /* Put the nonzero ac-coefficients */
-  for(i = 1; i < j; i++)
+  for (i = 1; i < j; i++)
   {
     int16_t ac = block[i];
-    if(ac == 0)
+    if (ac == 0)
     {
-      if(++num_ac == 16)
+      if (++num_ac == 16)
       {
         put_bits(&cm->e_ctx, ACVLC[cc][15][0], ACVLC_Size[cc][15][0]);
         num_ac = 0;
@@ -276,7 +276,7 @@ static void write_block(struct c63_common *cm, int16_t *in_data, uint32_t width,
       put_bits(&cm->e_ctx, ACVLC[cc][num_ac][size],
           ACVLC_Size[cc][num_ac][size]);
 
-      if(ac < 0) { --ac; }
+      if (ac < 0) { --ac; }
 
       put_bits(&cm->e_ctx, ac, size);
       num_ac = 0;
@@ -284,7 +284,7 @@ static void write_block(struct c63_common *cm, int16_t *in_data, uint32_t width,
   }
 
   /* Put end of block marker */
-  if(j < 64)
+  if (j < 64)
   {
     put_bits(&cm->e_ctx, ACVLC[cc][0][0], ACVLC_Size[cc][0][0]);
   }
@@ -296,12 +296,12 @@ static void write_interleaved_data_MCU(struct c63_common *cm, int16_t *dct,
 {
   uint32_t i, j, ii, jj;
 
-  for(j = y*v*8; j < (y+1)*v*8; j += 8)
+  for (j = y*v*8; j < (y+1)*v*8; j += 8)
   {
     jj = he-8;
     jj = MIN(j, jj);
 
-    for(i = x*h*8; i < (x+1)*h*8; i += 8)
+    for (i = x*h*8; i < (x+1)*h*8; i += 8)
     {
       ii = wi-8;
       ii = MIN(i, ii);
@@ -326,9 +326,9 @@ static void write_interleaved_data(struct c63_common *cm)
   uint32_t vblocks = (uint32_t) (ceil(cm->yph/(float)(8.0f*YY)));
 
   /* Write the MCU's interleaved */
-  for(v = 0; v < vblocks; ++v)
+  for (v = 0; v < vblocks; ++v)
   {
-    for(u = 0; u < ublocks; ++u)
+    for (u = 0; u < ublocks; ++u)
     {
       write_interleaved_data_MCU(cm, cm->curframe->residuals->Ydct, cm->ypw,
           cm->yph, YX, YY, u, v, &prev_DC[0], yhtbl, 0);

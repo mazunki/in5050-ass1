@@ -22,7 +22,7 @@ void put_bytes(FILE *fp, const void* data, unsigned int len)
 {
   size_t n = fwrite(data, 1, (size_t) len, fp);
 
-  if(n != (size_t) len)
+  if (n != (size_t) len)
   {
     fprintf(stderr, "Error writing bytes\n");
     exit(EXIT_FAILURE);
@@ -69,19 +69,19 @@ void put_bits(struct entropy_ctx *c, uint16_t bits, uint8_t n)
 {
   assert(n <= 24  && "Error writing bit");
 
-  if(n == 0) { return; }
+  if (n == 0) { return; }
 
   c->bit_buffer <<= n;
   c->bit_buffer |= bits & ((1 << n) - 1);
   c->bit_buffer_width += n;
 
-  while(c->bit_buffer_width >= 8)
+  while (c->bit_buffer_width >= 8)
   {
     uint8_t b = (uint8_t)(c->bit_buffer >> (c->bit_buffer_width - 8));
 
     put_byte(c->fp, b);
 
-    if(b == 0xff) { put_byte(c->fp, 0); }
+    if (b == 0xff) { put_byte(c->fp, 0); }
 
     c->bit_buffer_width -= 8;
   }
@@ -91,7 +91,7 @@ uint16_t get_bits(struct entropy_ctx *c, uint8_t n)
 {
   uint16_t ret = 0;
 
-  while(c->bit_buffer_width < n)
+  while (c->bit_buffer_width < n)
   {
     uint8_t b = get_byte(c->fp);
     if (b == 0xff) { get_byte(c->fp); } /* Discard stuffed byte */
@@ -115,12 +115,12 @@ uint16_t get_bits(struct entropy_ctx *c, uint8_t n)
  */
 void flush_bits(struct entropy_ctx *c)
 {
-  if(c->bit_buffer > 0)
+  if (c->bit_buffer > 0)
   {
     uint8_t b = c->bit_buffer << (8 - c->bit_buffer_width);
     put_byte(c->fp, b);
 
-    if(b == 0xff) { put_byte(c->fp, 0); }
+    if (b == 0xff) { put_byte(c->fp, 0); }
   }
 
   c->bit_buffer = 0;

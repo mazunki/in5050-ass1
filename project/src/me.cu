@@ -32,31 +32,20 @@ static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *res
 }
 
 /* Motion estimation for 8x8 block */
-static void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
-    uint8_t *orig, uint8_t *ref, int color_component)
+static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
+    uint8_t *orig, uint8_t *ref, int padw, int padh, int range)
 {
-  struct macroblock *mb =
-    &cm->curframe->mbs[color_component][mb_y*cm->padw[color_component]/MACROBLOCK_SIZE+mb_x];
-
-  int range = cm->me_search_range;
-
-  /* Quarter resolution for chroma channels. */
-  if (color_component > 0) { range /= 2; }
-
   int left = mb_x * MACROBLOCK_SIZE - range;
   int top = mb_y * MACROBLOCK_SIZE - range;
   int right = mb_x * MACROBLOCK_SIZE + range;
   int bottom = mb_y * MACROBLOCK_SIZE + range;
 
-  int w = cm->padw[color_component];
-  int h = cm->padh[color_component];
-
   /* Make sure we are within bounds of reference frame. TODO: Support partial
      frame bounds. */
   if (left < 0) { left = 0; }
   if (top < 0) { top = 0; }
-  if (right > (w - MACROBLOCK_SIZE)) { right = w - MACROBLOCK_SIZE; }
-  if (bottom > (h - MACROBLOCK_SIZE)) { bottom = h - MACROBLOCK_SIZE; }
+  if (right > (padw - MACROBLOCK_SIZE)) { right = padw - MACROBLOCK_SIZE; }
+  if (bottom > (padh - MACROBLOCK_SIZE)) { bottom = padh - MACROBLOCK_SIZE; }
 
   int x, y;
 
@@ -70,7 +59,7 @@ static void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
     for (x = left; x < right; ++x)
     {
       int sad;
-      sad_block_8x8(orig + my*w+mx, ref + y*w+x, w, &sad);
+      sad_block_8x8(orig + my*padw+mx, ref + y*padw+x, padw, &sad);
 
       /* printf("(%4d,%4d) - %d\n", x, y, sad); */
 
@@ -96,14 +85,16 @@ void c63_motion_estimate(struct c63_common *cm)
 {
   /* Compare this frame with previous reconstructed frame */
   int mb_x, mb_y;
+  int range = cm->me_search_range;
 
   /* Luma */
   for (mb_y = 0; mb_y < cm->mb_rows; ++mb_y)
   {
     for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x)
     {
-      me_block_8x8(cm, mb_x, mb_y, cm->curframe->orig->Y,
-          cm->refframe->recons->Y, Y_COMPONENT);
+      struct macroblock *mb = &cm->curframe->mbs[Y_COMPONENT][mb_y*cm->padw[Y_COMPONENT]/MACROBLOCK_SIZE + mb_x];
+      me_block_8x8(mb, mb_x, mb_y, cm->curframe->orig->Y,
+          cm->refframe->recons->Y, cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], range);
     }
   }
 
@@ -112,10 +103,12 @@ void c63_motion_estimate(struct c63_common *cm)
   {
     for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x)
     {
-      me_block_8x8(cm, mb_x, mb_y, cm->curframe->orig->U,
-          cm->refframe->recons->U, U_COMPONENT);
-      me_block_8x8(cm, mb_x, mb_y, cm->curframe->orig->V,
-          cm->refframe->recons->V, V_COMPONENT);
+      struct macroblock *mb_U = &cm->curframe->mbs[U_COMPONENT][mb_y*cm->padw[U_COMPONENT]/MACROBLOCK_SIZE + mb_x];
+      struct macroblock *mb_V = &cm->curframe->mbs[V_COMPONENT][mb_y*cm->padw[V_COMPONENT]/MACROBLOCK_SIZE + mb_x];
+      me_block_8x8(mb_U, mb_x, mb_y, cm->curframe->orig->Y,
+          cm->refframe->recons->Y, cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], range);
+      me_block_8x8(mb_V, mb_x, mb_y, cm->curframe->orig->Y,
+          cm->refframe->recons->Y, cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], range);
     }
   }
 }

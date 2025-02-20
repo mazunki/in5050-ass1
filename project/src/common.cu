@@ -18,7 +18,7 @@ struct frame* create_frame(struct c63_common *cm, yuv_t *image)
   }
 
   size_t frame_size = cm->ypw * cm->yph;
-  size_t chroma_size = cm->ypw * cm->yph;
+  size_t chroma_size = (cm->ypw/2) * (cm->yph/2);
   size_t num_blocks_luma = cm->mb_rows * cm->mb_cols;
   size_t num_blocks_chroma = (cm->mb_rows/2) * (cm->mb_cols/2);
 

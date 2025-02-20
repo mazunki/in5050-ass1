@@ -81,12 +81,17 @@ __device__ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
 }
 
 __global__ void c63_motion_estimate_kernel(uint8_t *d_orig, uint8_t *d_recons, macroblock *d_mbs, int width, int height, int range) {
-  for (int mb_y = 0; mb_y < height / MACROBLOCK_SIZE; ++mb_y) {
-    for (int mb_x = 0; mb_x < height / MACROBLOCK_SIZE; ++mb_x) {
-      macroblock *mb = &d_mbs[mb_y * (width / MACROBLOCK_SIZE) + mb_x];
-      me_block_8x8(mb, mb_x, mb_y, d_orig, d_recons, width, height, range);
-    }
+  int mb_x = blockIdx.x * blockDim.x + threadIdx.x;
+  int mb_y = blockIdx.y * blockDim.y + threadIdx.y;
+  int mb_cols = width/MACROBLOCK_SIZE;
+  int mb_rows = height/MACROBLOCK_SIZE;
+
+  if (mb_x >= mb_cols || mb_y >= mb_rows) {
+    return;
   }
+
+  macroblock *mb = &d_mbs[mb_y * mb_cols + mb_x];
+  me_block_8x8(mb, mb_x, mb_y, d_orig, d_recons, width, height, range);
 }
 
 __host__ void c63_motion_estimate(struct c63_common *cm)

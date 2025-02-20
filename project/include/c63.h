@@ -48,6 +48,10 @@ struct yuv
   uint8_t *Y;
   uint8_t *U;
   uint8_t *V;
+
+  uint8_t *d_Y;
+  uint8_t *d_U;
+  uint8_t *d_V;
 };
 
 struct dct
@@ -55,6 +59,10 @@ struct dct
   int16_t *Ydct;
   int16_t *Udct;
   int16_t *Vdct;
+
+  int16_t *d_Ydct;
+  int16_t *d_Udct;
+  int16_t *d_Vdct;
 };
 
 typedef struct yuv yuv_t;
@@ -82,6 +90,7 @@ struct frame
   dct_t *residuals;   // Difference between original image and predicted frame
 
   struct macroblock *mbs[COLOR_COMPONENTS];
+  struct macroblock *d_mbs[COLOR_COMPONENTS];
   int keyframe;
 };
 

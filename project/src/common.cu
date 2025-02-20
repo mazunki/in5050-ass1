@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <cuda_runtime.h>
 
 #include "common.h"
 
@@ -24,6 +25,7 @@ struct frame* create_frame(struct c63_common *cm, yuv_t *image)
 
   f->orig = image;
 
+  // cpu
   f->recons = (yuv_t*)malloc(sizeof(yuv_t));
   f->recons->Y = (uint8_t*)malloc(frame_size);
   f->recons->U = (uint8_t*)malloc(chroma_size);
@@ -43,6 +45,23 @@ struct frame* create_frame(struct c63_common *cm, yuv_t *image)
   f->mbs[U_COMPONENT] = (macroblock*)calloc(num_blocks_chroma, sizeof(struct macroblock));
   f->mbs[V_COMPONENT] = (macroblock*)calloc(num_blocks_chroma, sizeof(struct macroblock));
 
+  // gpu
+  CUDA_CHECK(cudaMalloc(&f->recons->d_Y, frame_size));
+  CUDA_CHECK(cudaMalloc(&f->recons->d_U, chroma_size));
+  CUDA_CHECK(cudaMalloc(&f->recons->d_V, chroma_size));
+
+  CUDA_CHECK(cudaMalloc(&f->predicted->d_Y, frame_size));
+  CUDA_CHECK(cudaMalloc(&f->predicted->d_U, chroma_size));
+  CUDA_CHECK(cudaMalloc(&f->predicted->d_V, chroma_size));
+
+  CUDA_CHECK(cudaMalloc(&f->residuals->d_Ydct, frame_size * sizeof(int16_t)));
+  CUDA_CHECK(cudaMalloc(&f->residuals->d_Udct, chroma_size * sizeof(int16_t)));
+  CUDA_CHECK(cudaMalloc(&f->residuals->d_Vdct, chroma_size * sizeof(int16_t)));
+
+  CUDA_CHECK(cudaMalloc(&f->d_mbs[Y_COMPONENT], num_blocks_luma * sizeof(struct macroblock)));
+  CUDA_CHECK(cudaMalloc(&f->d_mbs[U_COMPONENT], num_blocks_chroma * sizeof(struct macroblock)));
+  CUDA_CHECK(cudaMalloc(&f->d_mbs[V_COMPONENT], num_blocks_chroma * sizeof(struct macroblock)));
+
   return f;
 }
 
@@ -51,6 +70,25 @@ void destroy_frame(struct frame *f)
   /* First frame doesn't have a reconstructed frame to destroy */
   if (!f) { return; }
 
+  // gpu
+  CUDA_CHECK(cudaFree(f->recons->d_Y));
+  CUDA_CHECK(cudaFree(f->recons->d_U));
+  CUDA_CHECK(cudaFree(f->recons->d_V));
+
+  CUDA_CHECK(cudaFree(f->predicted->d_Y));
+  CUDA_CHECK(cudaFree(f->predicted->d_U));
+  CUDA_CHECK(cudaFree(f->predicted->d_V));
+
+  CUDA_CHECK(cudaFree(f->residuals->d_Ydct));
+  CUDA_CHECK(cudaFree(f->residuals->d_Udct));
+  CUDA_CHECK(cudaFree(f->residuals->d_Vdct));
+
+  CUDA_CHECK(cudaFree(f->d_mbs[Y_COMPONENT]));
+  CUDA_CHECK(cudaFree(f->d_mbs[U_COMPONENT]));
+  CUDA_CHECK(cudaFree(f->d_mbs[V_COMPONENT]));
+
+
+  // cpu
   free(f->recons->Y);
   free(f->recons->U);
   free(f->recons->V);

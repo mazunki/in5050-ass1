@@ -16,19 +16,21 @@
 
 #define MACROBLOCK_SIZE 8
 
-static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result)
+static int sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride)
 {
   int u, v;
 
-  *result = 0;
+  int result = 0;
 
   for (v = 0; v < MACROBLOCK_SIZE; ++v)
   {
     for (u = 0; u < MACROBLOCK_SIZE; ++u)
     {
-      *result += abs(block2[v*stride+u] - block1[v*stride+u]);
+      result += abs(block2[v*stride+u] - block1[v*stride+u]);
     }
   }
+
+  return result;
 }
 
 /* Motion estimation for 8x8 block */
@@ -58,8 +60,7 @@ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
   {
     for (x = left; x < right; ++x)
     {
-      int sad;
-      sad_block_8x8(orig + my*padw+mx, ref + y*padw+x, padw, &sad);
+      int sad = sad_block_8x8(orig + my*padw+mx, ref + y*padw+x, padw);
 
       /* printf("(%4d,%4d) - %d\n", x, y, sad); */
 

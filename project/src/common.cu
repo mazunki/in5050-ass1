@@ -39,12 +39,9 @@ struct frame* create_frame(struct c63_common *cm, yuv_t *image)
   f->residuals->Udct = (int16_t*)calloc(chroma_size, sizeof(int16_t));
   f->residuals->Vdct = (int16_t*)calloc(chroma_size, sizeof(int16_t));
 
-  f->mbs[Y_COMPONENT] =
-    (macroblock*)calloc(num_blocks_luma, sizeof(struct macroblock));
-  f->mbs[U_COMPONENT] =
-    (macroblock*)calloc(num_blocks_chroma, sizeof(struct macroblock));
-  f->mbs[V_COMPONENT] =
-    (macroblock*)calloc(num_blocks_chroma, sizeof(struct macroblock));
+  f->mbs[Y_COMPONENT] = (macroblock*)calloc(num_blocks_luma, sizeof(struct macroblock));
+  f->mbs[U_COMPONENT] = (macroblock*)calloc(num_blocks_chroma, sizeof(struct macroblock));
+  f->mbs[V_COMPONENT] = (macroblock*)calloc(num_blocks_chroma, sizeof(struct macroblock));
 
   return f;
 }

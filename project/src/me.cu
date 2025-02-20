@@ -93,7 +93,6 @@ void c63_motion_estimate_kernel(uint8_t *d_orig, uint8_t *d_recons, macroblock *
 void c63_motion_estimate(struct c63_common *cm)
 {
   /* Compare this frame with previous reconstructed frame */
-  int mb_x, mb_y;
   int range = cm->me_search_range;
 
   /* Luma */

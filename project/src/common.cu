@@ -12,30 +12,39 @@
 struct frame* create_frame(struct c63_common *cm, yuv_t *image)
 {
   frame *f = (frame*)malloc(sizeof(struct frame));
+  if (f == NULL)
+  {
+    return NULL;
+  }
+
+  size_t frame_size = cm->ypw * cm->yph;
+  size_t chroma_size = cm->ypw * cm->yph;
+  size_t num_blocks_luma = cm->mb_rows * cm->mb_cols;
+  size_t num_blocks_chroma = (cm->mb_rows/2) * (cm->mb_cols/2);
 
   f->orig = image;
 
   f->recons = (yuv_t*)malloc(sizeof(yuv_t));
-  f->recons->Y = (uint8_t*)malloc(cm->ypw * cm->yph);
-  f->recons->U = (uint8_t*)malloc(cm->upw * cm->uph);
-  f->recons->V = (uint8_t*)malloc(cm->vpw * cm->vph);
+  f->recons->Y = (uint8_t*)malloc(frame_size);
+  f->recons->U = (uint8_t*)malloc(chroma_size);
+  f->recons->V = (uint8_t*)malloc(chroma_size);
 
   f->predicted = (yuv_t*)malloc(sizeof(yuv_t));
-  f->predicted->Y = (uint8_t*)calloc(cm->ypw * cm->yph, sizeof(uint8_t));
-  f->predicted->U = (uint8_t*)calloc(cm->upw * cm->uph, sizeof(uint8_t));
-  f->predicted->V = (uint8_t*)calloc(cm->vpw * cm->vph, sizeof(uint8_t));
+  f->predicted->Y = (uint8_t*)calloc(frame_size, sizeof(uint8_t));
+  f->predicted->U = (uint8_t*)calloc(chroma_size, sizeof(uint8_t));
+  f->predicted->V = (uint8_t*)calloc(chroma_size, sizeof(uint8_t));
 
   f->residuals = (dct_t*)malloc(sizeof(dct_t));
-  f->residuals->Ydct = (int16_t*)calloc(cm->ypw * cm->yph, sizeof(int16_t));
-  f->residuals->Udct = (int16_t*)calloc(cm->upw * cm->uph, sizeof(int16_t));
-  f->residuals->Vdct = (int16_t*)calloc(cm->vpw * cm->vph, sizeof(int16_t));
+  f->residuals->Ydct = (int16_t*)calloc(frame_size, sizeof(int16_t));
+  f->residuals->Udct = (int16_t*)calloc(chroma_size, sizeof(int16_t));
+  f->residuals->Vdct = (int16_t*)calloc(chroma_size, sizeof(int16_t));
 
   f->mbs[Y_COMPONENT] =
-    (macroblock*)calloc(cm->mb_rows * cm->mb_cols, sizeof(struct macroblock));
+    (macroblock*)calloc(num_blocks_luma, sizeof(struct macroblock));
   f->mbs[U_COMPONENT] =
-    (macroblock*)calloc(cm->mb_rows/2 * cm->mb_cols/2, sizeof(struct macroblock));
+    (macroblock*)calloc(num_blocks_chroma, sizeof(struct macroblock));
   f->mbs[V_COMPONENT] =
-    (macroblock*)calloc(cm->mb_rows/2 * cm->mb_cols/2, sizeof(struct macroblock));
+    (macroblock*)calloc(num_blocks_chroma, sizeof(struct macroblock));
 
   return f;
 }

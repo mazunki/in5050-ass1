@@ -120,8 +120,8 @@ __host__ void c63_motion_estimate(struct c63_common *cm)
   CUDA_CHECK(cudaDeviceSynchronize());
 
   CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[Y_COMPONENT], cm->curframe->d_mbs[Y_COMPONENT], num_blocks_luma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[U_COMPONENT], cm->curframe->d_mbs[U_COMPONENT], num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[V_COMPONENT], cm->curframe->d_mbs[V_COMPONENT], num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[U_COMPONENT], cm->curframe->d_mbs[Y_COMPONENT], num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[V_COMPONENT], cm->curframe->d_mbs[Y_COMPONENT], num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
 }
 
 /* Motion compensation for 8x8 block */

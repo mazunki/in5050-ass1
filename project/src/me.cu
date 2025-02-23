@@ -104,19 +104,16 @@ __host__ void c63_motion_estimate(struct c63_common *cm)
 }
 
 /* Motion compensation for 8x8 block */
-static void mc_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
-    uint8_t *predicted, uint8_t *ref, int color_component)
+static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
+                         uint8_t *predicted, uint8_t *ref, int padw)
 {
-  struct macroblock *mb =
-    &cm->curframe->mbs[color_component][mb_y * cm->padw[color_component] / MACROBLOCK_SIZE + mb_x];
-
   if (!mb->use_mv) { return; }
 
   int left = mb_x * MACROBLOCK_SIZE;
   int top = mb_y * MACROBLOCK_SIZE;
   int right = left + MACROBLOCK_SIZE;
   int bottom = top + MACROBLOCK_SIZE;
-  int w = cm->padw[color_component];
+  int w = padw;
 
   for (int y = top; y < bottom; ++y)
   {
@@ -135,8 +132,11 @@ void c63_motion_compensate(struct c63_common *cm)
   {
     for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x)
     {
-      mc_block_8x8(cm, mb_x, mb_y, cm->curframe->predicted->Y,
-          cm->refframe->recons->Y, Y_COMPONENT);
+      struct macroblock *mb = &cm->curframe->mbs[Y_COMPONENT]
+        [mb_y * (cm->padw[Y_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
+
+      mc_block_8x8(mb, mb_x, mb_y, cm->curframe->predicted->Y,
+                   cm->refframe->recons->Y, cm->padw[Y_COMPONENT]);
     }
   }
   /* Chroma */
@@ -144,10 +144,17 @@ void c63_motion_compensate(struct c63_common *cm)
   {
     for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x)
     {
-      mc_block_8x8(cm, mb_x, mb_y, cm->curframe->predicted->U,
-          cm->refframe->recons->U, U_COMPONENT);
-      mc_block_8x8(cm, mb_x, mb_y, cm->curframe->predicted->V,
-          cm->refframe->recons->V, V_COMPONENT);
+      struct macroblock *mb_u = &cm->curframe->mbs[U_COMPONENT]
+        [mb_y * (cm->padw[U_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
+
+      struct macroblock *mb_v = &cm->curframe->mbs[V_COMPONENT]
+        [mb_y * (cm->padw[V_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
+
+      mc_block_8x8(mb_u, mb_x, mb_y, cm->curframe->predicted->U,
+                   cm->refframe->recons->U, cm->padw[U_COMPONENT]);
+
+      mc_block_8x8(mb_v, mb_x, mb_y, cm->curframe->predicted->V,
+                   cm->refframe->recons->V, cm->padw[V_COMPONENT]);
     }
   }
 }

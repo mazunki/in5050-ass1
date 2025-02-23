@@ -20,7 +20,7 @@ set(CMAKE_C_FLAGS_DEBUG "-g -O1 -fno-tree-vectorize")
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/include)
 set(CMAKE_CUDA_INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/include)
-
+add_compile_options(-gencode arch=compute_50,code=sm_50 -Wno-deprecated-gpu-targets)
 
 
 # Library for shared functionality

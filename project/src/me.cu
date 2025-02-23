@@ -197,10 +197,10 @@ __host__ void c63_motion_compensate(struct c63_common *cm)
   CUDA_ASSERT();
 
   /* Chroma */
-  c63_motion_compensate_kernel<<<grid_size, block_size>>>(cm->curframe->d_mbs[Y_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->d_U, cm->refframe->recons->d_U, cm->padw[U_COMPONENT]);
+  c63_motion_compensate_kernel<<<grid_size, block_size>>>(cm->curframe->d_mbs[U_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->d_U, cm->refframe->recons->d_U, cm->padw[U_COMPONENT]);
   CUDA_ASSERT();
 
-  c63_motion_compensate_kernel<<<grid_size, block_size>>>(cm->curframe->d_mbs[Y_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->d_V, cm->refframe->recons->d_V, cm->padw[V_COMPONENT]);
+  c63_motion_compensate_kernel<<<grid_size, block_size>>>(cm->curframe->d_mbs[V_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->d_V, cm->refframe->recons->d_V, cm->padw[V_COMPONENT]);
   CUDA_ASSERT();
 
   CUDA_CHECK(cudaDeviceSynchronize());

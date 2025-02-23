@@ -35,7 +35,7 @@ __device__ static int sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride
 
 /* Motion estimation for an 8x8 block */
 __device__ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
-    uint8_t *orig, uint8_t *ref, int padw, int padh, int range)
+                                    uint8_t *orig, uint8_t *ref, int padw, int padh, int range)
 {
   /* Make sure we are within bounds of reference frame. TODO: Support partial
      frame bounds. */

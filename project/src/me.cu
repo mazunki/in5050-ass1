@@ -125,8 +125,7 @@ __host__ void c63_motion_estimate(struct c63_common *cm)
 }
 
 /* Motion compensation for 8x8 block */
-static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
-                         uint8_t *predicted, uint8_t *ref, int padw)
+static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *predicted, uint8_t *ref, int padw)
 {
   if (!mb->use_mv) { return; }
 
@@ -146,8 +145,7 @@ static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
 }
 
 /* Motion compensation kernel function (still CPU-based) */
-static void c63_motion_compensate_kernel(struct macroblock *mbs, int mb_cols, int mb_rows,
-                                         uint8_t *predicted, uint8_t *ref, int padw)
+static void c63_motion_compensate_kernel(struct macroblock *mbs, int mb_cols, int mb_rows, uint8_t *predicted, uint8_t *ref, int padw)
 {
   for (int mb_y = 0; mb_y < mb_rows; ++mb_y)
   {

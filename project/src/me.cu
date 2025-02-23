@@ -144,27 +144,80 @@ static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *pre
   }
 }
 
-/* Motion compensation kernel function (still CPU-based) */
-static void c63_motion_compensate_kernel(struct macroblock *mbs, int mb_cols, int mb_rows, uint8_t *predicted, uint8_t *ref, int padw)
-{
-  for (int mb_y = 0; mb_y < mb_rows; ++mb_y)
-  {
-    for (int mb_x = 0; mb_x < mb_cols; ++mb_x)
-    {
-      struct macroblock *mb = &mbs[mb_y * mb_cols + mb_x];
+#include <cuda_runtime.h>
 
-      mc_block_8x8(mb, mb_x, mb_y, predicted, ref, padw);
+__global__ void c63_motion_compensate_kernel(macroblock *d_mbs, int mb_cols, int mb_rows,
+                                             uint8_t *d_predicted, uint8_t *d_ref, int padw)
+{
+  int mb_x = blockIdx.x * blockDim.x + threadIdx.x;
+  int mb_y = blockIdx.y * blockDim.y + threadIdx.y;
+
+  if (mb_x >= mb_cols || mb_y >= mb_rows) {
+    return;
+  }
+
+  macroblock *mb = &d_mbs[mb_y * mb_cols + mb_x];
+  if (!mb->use_mv) {
+    return;
+  }
+
+  int left   = mb_x * MACROBLOCK_SIZE;
+  int top    = mb_y * MACROBLOCK_SIZE;
+  int right  = left + MACROBLOCK_SIZE;
+  int bottom = right + MACROBLOCK_SIZE;
+  int w = padw;
+
+  int x, y;
+
+  for (y = top; y < bottom; ++y)
+  {
+    for (x = left; x < right; ++x)
+    {
+      int ref_x = x+mb->mv_x;
+      int ref_y = y+mb->mv_y;
+      d_predicted[y*w + x] = d_ref[ref_y*w + ref_x];
     }
   }
 }
 
-void c63_motion_compensate(struct c63_common *cm)
+__host__ void c63_motion_compensate(struct c63_common *cm)
 {
+  dim3 block_size(CUDA_THREADS_PER_BLOCK_X, CUDA_THREADS_PER_BLOCK_Y);
+  dim3 grid_size(cm->padw[Y_COMPONENT] / MACROBLOCK_SIZE, cm->padh[Y_COMPONENT] / MACROBLOCK_SIZE);
+
+  /* Allocate memory for predicted frame on GPU */
+  size_t frame_size = cm->ypw * cm->yph;
+  size_t chroma_size = (cm->ypw / 2) * (cm->yph / 2);
+  
+  /* Ensure predicted frame is initialized */
+  CUDA_CHECK(cudaMemset(cm->curframe->predicted->d_Y, 0, frame_size));
+  CUDA_CHECK(cudaMemset(cm->curframe->predicted->d_U, 0, chroma_size));
+  CUDA_CHECK(cudaMemset(cm->curframe->predicted->d_V, 0, chroma_size));
+
+  /* Copy macroblock data to device */
+  size_t num_blocks_luma = cm->mb_rows * cm->mb_cols;
+  size_t num_blocks_chroma = (cm->mb_rows / 2) * (cm->mb_cols / 2);
+
+  CUDA_CHECK(cudaMemcpy(cm->curframe->d_mbs[Y_COMPONENT], cm->curframe->mbs[Y_COMPONENT], num_blocks_luma * sizeof(macroblock), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(cm->curframe->d_mbs[U_COMPONENT], cm->curframe->mbs[U_COMPONENT], num_blocks_chroma * sizeof(macroblock), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(cm->curframe->d_mbs[V_COMPONENT], cm->curframe->mbs[V_COMPONENT], num_blocks_chroma * sizeof(macroblock), cudaMemcpyHostToDevice));
+
   /* Luma */
-  c63_motion_compensate_kernel(cm->curframe->mbs[Y_COMPONENT], cm->mb_cols, cm->mb_rows, cm->curframe->predicted->Y, cm->refframe->recons->Y, cm->padw[Y_COMPONENT]);
+  c63_motion_compensate_kernel<<<grid_size, block_size>>>(cm->curframe->d_mbs[Y_COMPONENT], cm->mb_cols, cm->mb_rows, cm->curframe->predicted->d_Y, cm->refframe->recons->d_Y, cm->padw[Y_COMPONENT]);
+  CUDA_ASSERT();
 
   /* Chroma */
-  c63_motion_compensate_kernel(cm->curframe->mbs[U_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->U, cm->refframe->recons->U, cm->padw[U_COMPONENT]);
+  c63_motion_compensate_kernel<<<grid_size, block_size>>>(cm->curframe->d_mbs[U_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->d_U, cm->refframe->recons->d_U, cm->padw[U_COMPONENT]);
+  CUDA_ASSERT();
 
-  c63_motion_compensate_kernel(cm->curframe->mbs[V_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->V, cm->refframe->recons->V, cm->padw[V_COMPONENT]);
+  c63_motion_compensate_kernel<<<grid_size, block_size>>>(cm->curframe->d_mbs[V_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->d_V, cm->refframe->recons->d_V, cm->padw[V_COMPONENT]);
+  CUDA_ASSERT();
+
+  CUDA_CHECK(cudaDeviceSynchronize());
+
+  /* Copy results back to host */
+  CUDA_CHECK(cudaMemcpy(cm->curframe->predicted->Y, cm->curframe->predicted->d_Y, frame_size, cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(cm->curframe->predicted->U, cm->curframe->predicted->d_U, chroma_size, cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(cm->curframe->predicted->V, cm->curframe->predicted->d_V, chroma_size, cudaMemcpyDeviceToHost));
 }
+

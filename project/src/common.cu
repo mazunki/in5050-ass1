@@ -46,6 +46,12 @@ struct frame* create_frame(struct c63_common *cm, yuv_t *image)
   f->mbs[V_COMPONENT] = (macroblock*)calloc(num_blocks_chroma, sizeof(struct macroblock));
 
   // gpu
+  if (f->orig != NULL) {
+    CUDA_CHECK(cudaMalloc(&f->orig->d_Y, frame_size));
+    CUDA_CHECK(cudaMalloc(&f->orig->d_U, chroma_size));
+    CUDA_CHECK(cudaMalloc(&f->orig->d_V, chroma_size));
+  }
+
   CUDA_CHECK(cudaMalloc(&f->recons->d_Y, frame_size));
   CUDA_CHECK(cudaMalloc(&f->recons->d_U, chroma_size));
   CUDA_CHECK(cudaMalloc(&f->recons->d_V, chroma_size));
@@ -71,6 +77,12 @@ void destroy_frame(struct frame *f)
   if (!f) { return; }
 
   // gpu
+  if (f->orig != NULL) {
+    CUDA_CHECK(cudaFree(f->orig->d_Y));
+    CUDA_CHECK(cudaFree(f->orig->d_U));
+    CUDA_CHECK(cudaFree(f->orig->d_V));
+  }
+
   CUDA_CHECK(cudaFree(f->recons->d_Y));
   CUDA_CHECK(cudaFree(f->recons->d_U));
   CUDA_CHECK(cudaFree(f->recons->d_V));

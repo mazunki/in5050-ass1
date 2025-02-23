@@ -10,6 +10,19 @@
 
 #include "common.h"
 
+void c63_cuda_init(struct c63_common *cm) {
+  cudaStreamCreate(&cm->stream_Y);
+  cudaStreamCreate(&cm->stream_U);
+  cudaStreamCreate(&cm->stream_V);
+}
+
+void c63_cuda_free(struct c63_common *cm) {
+  cudaStreamDestroy(cm->stream_Y);
+  cudaStreamDestroy(cm->stream_U);
+  cudaStreamDestroy(cm->stream_V);
+}
+
+
 struct frame* create_frame(struct c63_common *cm, yuv_t *image)
 {
   frame *f = (frame*)malloc(sizeof(struct frame));

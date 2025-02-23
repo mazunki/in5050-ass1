@@ -33,6 +33,9 @@ struct frame* create_frame(struct c63_common *cm, yuv_t *image);
 
 void destroy_frame(struct frame *f);
 
+void c63_cuda_init(struct c63_common *cm);
+void c63_cuda_free(struct c63_common *cm);
+
 void dump_image(yuv_t *image, int w, int h, FILE *fp);
 
 #endif  /* C63_COMMON_H_ */

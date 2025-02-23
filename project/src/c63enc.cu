@@ -169,12 +169,15 @@ struct c63_common* init_c63_enc(int width, int height)
     cm->quanttbl[V_COMPONENT][i] = uvquanttbl_def[i] / (cm->qp / 10.0);
   }
 
+  c63_cuda_init(cm);
+
   return cm;
 }
 
 void free_c63_enc(struct c63_common* cm)
 {
   destroy_frame(cm->curframe);
+  c63_cuda_init(cm);
   free(cm);
 }
 

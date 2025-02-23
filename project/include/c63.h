@@ -80,6 +80,7 @@ struct macroblock
 {
   int use_mv;
   int8_t mv_x, mv_y;
+  int sad;
 };
 
 struct frame
@@ -119,6 +120,8 @@ struct c63_common
   int frames_since_keyframe;
 
   struct entropy_ctx e_ctx;
+
+  cudaStream_t stream_Y, stream_U, stream_V;
 };
 
 #endif  /* C63_C63_H_ */

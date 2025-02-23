@@ -125,13 +125,13 @@ __host__ void c63_motion_estimate(struct c63_common *cm)
 }
 
 /* Motion compensation for 8x8 block */
-static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *predicted, uint8_t *ref, int padw)
+__device__ static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *predicted, uint8_t *ref, int padw)
 {
   if (!mb->use_mv) { return; }
 
-  int left = mb_x * MACROBLOCK_SIZE;
-  int top = mb_y * MACROBLOCK_SIZE;
-  int right = left + MACROBLOCK_SIZE;
+  int left   = mb_x * MACROBLOCK_SIZE;
+  int top    = mb_y * MACROBLOCK_SIZE;
+  int right  = left + MACROBLOCK_SIZE;
   int bottom = top + MACROBLOCK_SIZE;
   int w = padw;
 
@@ -143,8 +143,6 @@ static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *pre
     }
   }
 }
-
-#include <cuda_runtime.h>
 
 __global__ void c63_motion_compensate_kernel(macroblock *d_mbs, int mb_cols, int mb_rows,
                                              uint8_t *d_predicted, uint8_t *d_ref, int padw)
@@ -161,21 +159,13 @@ __global__ void c63_motion_compensate_kernel(macroblock *d_mbs, int mb_cols, int
     return;
   }
 
-  int left   = mb_x * MACROBLOCK_SIZE;
-  int top    = mb_y * MACROBLOCK_SIZE;
-  int right  = left + MACROBLOCK_SIZE;
-  int bottom = right + MACROBLOCK_SIZE;
-  int w = padw;
-
   int x, y;
 
-  for (y = top; y < bottom; ++y)
+  for (y = 0; y < mb_rows; ++y)
   {
-    for (x = left; x < right; ++x)
+    for (x = 0; x < mb_cols; ++x)
     {
-      int ref_x = x+mb->mv_x;
-      int ref_y = y+mb->mv_y;
-      d_predicted[y*w + x] = d_ref[ref_y*w + ref_x];
+      mc_block_8x8(mb, mb_x, mb_y, d_predicted, d_ref, padw);
     }
   }
 }
@@ -189,28 +179,28 @@ __host__ void c63_motion_compensate(struct c63_common *cm)
   size_t frame_size = cm->ypw * cm->yph;
   size_t chroma_size = (cm->ypw / 2) * (cm->yph / 2);
   
-  /* Ensure predicted frame is initialized */
-  CUDA_CHECK(cudaMemset(cm->curframe->predicted->d_Y, 0, frame_size));
-  CUDA_CHECK(cudaMemset(cm->curframe->predicted->d_U, 0, chroma_size));
-  CUDA_CHECK(cudaMemset(cm->curframe->predicted->d_V, 0, chroma_size));
-
   /* Copy macroblock data to device */
   size_t num_blocks_luma = cm->mb_rows * cm->mb_cols;
   size_t num_blocks_chroma = (cm->mb_rows / 2) * (cm->mb_cols / 2);
+  CUDA_CHECK(cudaDeviceSynchronize());
 
   CUDA_CHECK(cudaMemcpy(cm->curframe->d_mbs[Y_COMPONENT], cm->curframe->mbs[Y_COMPONENT], num_blocks_luma * sizeof(macroblock), cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemcpy(cm->curframe->d_mbs[U_COMPONENT], cm->curframe->mbs[U_COMPONENT], num_blocks_chroma * sizeof(macroblock), cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemcpy(cm->curframe->d_mbs[V_COMPONENT], cm->curframe->mbs[V_COMPONENT], num_blocks_chroma * sizeof(macroblock), cudaMemcpyHostToDevice));
+
+  CUDA_CHECK(cudaMemcpy(cm->refframe->recons->d_Y, cm->refframe->recons->Y, frame_size, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(cm->refframe->recons->d_U, cm->refframe->recons->U, chroma_size, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(cm->refframe->recons->d_V, cm->refframe->recons->V, chroma_size, cudaMemcpyHostToDevice));
 
   /* Luma */
   c63_motion_compensate_kernel<<<grid_size, block_size>>>(cm->curframe->d_mbs[Y_COMPONENT], cm->mb_cols, cm->mb_rows, cm->curframe->predicted->d_Y, cm->refframe->recons->d_Y, cm->padw[Y_COMPONENT]);
   CUDA_ASSERT();
 
   /* Chroma */
-  c63_motion_compensate_kernel<<<grid_size, block_size>>>(cm->curframe->d_mbs[U_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->d_U, cm->refframe->recons->d_U, cm->padw[U_COMPONENT]);
+  c63_motion_compensate_kernel<<<grid_size, block_size>>>(cm->curframe->d_mbs[Y_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->d_U, cm->refframe->recons->d_U, cm->padw[U_COMPONENT]);
   CUDA_ASSERT();
 
-  c63_motion_compensate_kernel<<<grid_size, block_size>>>(cm->curframe->d_mbs[V_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->d_V, cm->refframe->recons->d_V, cm->padw[V_COMPONENT]);
+  c63_motion_compensate_kernel<<<grid_size, block_size>>>(cm->curframe->d_mbs[Y_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->d_V, cm->refframe->recons->d_V, cm->padw[V_COMPONENT]);
   CUDA_ASSERT();
 
   CUDA_CHECK(cudaDeviceSynchronize());
@@ -219,5 +209,5 @@ __host__ void c63_motion_compensate(struct c63_common *cm)
   CUDA_CHECK(cudaMemcpy(cm->curframe->predicted->Y, cm->curframe->predicted->d_Y, frame_size, cudaMemcpyDeviceToHost));
   CUDA_CHECK(cudaMemcpy(cm->curframe->predicted->U, cm->curframe->predicted->d_U, chroma_size, cudaMemcpyDeviceToHost));
   CUDA_CHECK(cudaMemcpy(cm->curframe->predicted->V, cm->curframe->predicted->d_V, chroma_size, cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaDeviceSynchronize());
 }
-

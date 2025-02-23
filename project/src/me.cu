@@ -145,31 +145,28 @@ static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
   }
 }
 
-void c63_motion_compensate(struct c63_common *cm)
+/* Motion compensation kernel function (still CPU-based) */
+static void c63_motion_compensate_kernel(struct macroblock *mbs, int mb_cols, int mb_rows,
+    uint8_t *predicted, uint8_t *ref, int padw)
 {
-  int mb_x, mb_y;
-
-  /* Luma */
-  for (mb_y = 0; mb_y < cm->mb_rows; ++mb_y)
-  {
-    for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x)
+    for (int mb_y = 0; mb_y < mb_rows; ++mb_y)
     {
-      struct macroblock *mb = &cm->curframe->mbs[Y_COMPONENT][mb_y * (cm->padw[Y_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
-      mc_block_8x8(mb, mb_x, mb_y, cm->curframe->predicted->Y, cm->refframe->recons->Y, cm->padw[Y_COMPONENT]);
-    }
-  }
+        for (int mb_x = 0; mb_x < mb_cols; ++mb_x)
+        {
+            struct macroblock *mb = &mbs[mb_y * mb_cols + mb_x];
 
-  /* Chroma */
-  for (mb_y = 0; mb_y < cm->mb_rows / 2; ++mb_y)
-  {
-    for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x)
-    {
-      struct macroblock *mb_u = &cm->curframe->mbs[U_COMPONENT][mb_y * (cm->padw[U_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
-      mc_block_8x8(mb_u, mb_x, mb_y, cm->curframe->predicted->U, cm->refframe->recons->U, cm->padw[U_COMPONENT]);
-
-      struct macroblock *mb_v = &cm->curframe->mbs[V_COMPONENT][mb_y * (cm->padw[V_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
-      mc_block_8x8(mb_v, mb_x, mb_y, cm->curframe->predicted->V, cm->refframe->recons->V, cm->padw[V_COMPONENT]);
+            mc_block_8x8(mb, mb_x, mb_y, predicted, ref, padw);
+        }
     }
-  }
 }
 
+void c63_motion_compensate(struct c63_common *cm)
+{
+    /* Luma */
+    c63_motion_compensate_kernel( cm->curframe->mbs[Y_COMPONENT], cm->mb_cols, cm->mb_rows, cm->curframe->predicted->Y, cm->refframe->recons->Y, cm->padw[Y_COMPONENT]);
+
+    /* Chroma */
+    c63_motion_compensate_kernel( cm->curframe->mbs[U_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->U, cm->refframe->recons->U, cm->padw[U_COMPONENT]);
+
+    c63_motion_compensate_kernel( cm->curframe->mbs[V_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->V, cm->refframe->recons->V, cm->padw[V_COMPONENT]);
+}

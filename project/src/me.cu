@@ -147,26 +147,26 @@ static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
 
 /* Motion compensation kernel function (still CPU-based) */
 static void c63_motion_compensate_kernel(struct macroblock *mbs, int mb_cols, int mb_rows,
-    uint8_t *predicted, uint8_t *ref, int padw)
+                                         uint8_t *predicted, uint8_t *ref, int padw)
 {
-    for (int mb_y = 0; mb_y < mb_rows; ++mb_y)
+  for (int mb_y = 0; mb_y < mb_rows; ++mb_y)
+  {
+    for (int mb_x = 0; mb_x < mb_cols; ++mb_x)
     {
-        for (int mb_x = 0; mb_x < mb_cols; ++mb_x)
-        {
-            struct macroblock *mb = &mbs[mb_y * mb_cols + mb_x];
+      struct macroblock *mb = &mbs[mb_y * mb_cols + mb_x];
 
-            mc_block_8x8(mb, mb_x, mb_y, predicted, ref, padw);
-        }
+      mc_block_8x8(mb, mb_x, mb_y, predicted, ref, padw);
     }
+  }
 }
 
 void c63_motion_compensate(struct c63_common *cm)
 {
-    /* Luma */
-    c63_motion_compensate_kernel( cm->curframe->mbs[Y_COMPONENT], cm->mb_cols, cm->mb_rows, cm->curframe->predicted->Y, cm->refframe->recons->Y, cm->padw[Y_COMPONENT]);
+  /* Luma */
+  c63_motion_compensate_kernel(cm->curframe->mbs[Y_COMPONENT], cm->mb_cols, cm->mb_rows, cm->curframe->predicted->Y, cm->refframe->recons->Y, cm->padw[Y_COMPONENT]);
 
-    /* Chroma */
-    c63_motion_compensate_kernel( cm->curframe->mbs[U_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->U, cm->refframe->recons->U, cm->padw[U_COMPONENT]);
+  /* Chroma */
+  c63_motion_compensate_kernel(cm->curframe->mbs[U_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->U, cm->refframe->recons->U, cm->padw[U_COMPONENT]);
 
-    c63_motion_compensate_kernel( cm->curframe->mbs[V_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->V, cm->refframe->recons->V, cm->padw[V_COMPONENT]);
+  c63_motion_compensate_kernel(cm->curframe->mbs[V_COMPONENT], cm->mb_cols / 2, cm->mb_rows / 2, cm->curframe->predicted->V, cm->refframe->recons->V, cm->padw[V_COMPONENT]);
 }

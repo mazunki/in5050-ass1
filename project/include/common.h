@@ -15,6 +15,19 @@
         }                                                                     \
     }
 
+#define CUDA_ASSERT()                                                         \
+    {                                                                         \
+        cudaError_t err = cudaGetLastError();                                 \
+        if (err != cudaSuccess) {                                             \
+            fprintf(stderr, "CUDA Error: %s (file %s, line %d)\n",            \
+                    cudaGetErrorString(err), __FILE__, __LINE__);             \
+            exit(err);                                                        \
+        }                                                                     \
+    }
+
+
+
+
 // Declarations
 struct frame* create_frame(struct c63_common *cm, yuv_t *image);
 

@@ -18,55 +18,50 @@ struct frame* create_frame(struct c63_common *cm, yuv_t *image)
     return NULL;
   }
 
-  size_t frame_size = cm->ypw * cm->yph;
-  size_t chroma_size = (cm->ypw/2) * (cm->yph/2);
-  size_t num_blocks_luma = cm->mb_rows * cm->mb_cols;
-  size_t num_blocks_chroma = (cm->mb_rows/2) * (cm->mb_cols/2);
-
   f->orig = image;
 
   // cpu
   f->recons = (yuv_t*)malloc(sizeof(yuv_t));
-  f->recons->Y = (uint8_t*)malloc(frame_size);
-  f->recons->U = (uint8_t*)malloc(chroma_size);
-  f->recons->V = (uint8_t*)malloc(chroma_size);
+  f->recons->Y = (uint8_t*)malloc(cm->frame_size);
+  f->recons->U = (uint8_t*)malloc(cm->chroma_size);
+  f->recons->V = (uint8_t*)malloc(cm->chroma_size);
 
   f->predicted = (yuv_t*)malloc(sizeof(yuv_t));
-  f->predicted->Y = (uint8_t*)calloc(frame_size, sizeof(uint8_t));
-  f->predicted->U = (uint8_t*)calloc(chroma_size, sizeof(uint8_t));
-  f->predicted->V = (uint8_t*)calloc(chroma_size, sizeof(uint8_t));
+  f->predicted->Y = (uint8_t*)calloc(cm->frame_size, sizeof(uint8_t));
+  f->predicted->U = (uint8_t*)calloc(cm->chroma_size, sizeof(uint8_t));
+  f->predicted->V = (uint8_t*)calloc(cm->chroma_size, sizeof(uint8_t));
 
   f->residuals = (dct_t*)malloc(sizeof(dct_t));
-  f->residuals->Ydct = (int16_t*)calloc(frame_size, sizeof(int16_t));
-  f->residuals->Udct = (int16_t*)calloc(chroma_size, sizeof(int16_t));
-  f->residuals->Vdct = (int16_t*)calloc(chroma_size, sizeof(int16_t));
+  f->residuals->Ydct = (int16_t*)calloc(cm->frame_size, sizeof(int16_t));
+  f->residuals->Udct = (int16_t*)calloc(cm->chroma_size, sizeof(int16_t));
+  f->residuals->Vdct = (int16_t*)calloc(cm->chroma_size, sizeof(int16_t));
 
-  f->mbs[Y_COMPONENT] = (macroblock*)calloc(num_blocks_luma, sizeof(struct macroblock));
-  f->mbs[U_COMPONENT] = (macroblock*)calloc(num_blocks_chroma, sizeof(struct macroblock));
-  f->mbs[V_COMPONENT] = (macroblock*)calloc(num_blocks_chroma, sizeof(struct macroblock));
+  f->mbs[Y_COMPONENT] = (macroblock*)calloc(cm->num_blocks_luma, sizeof(struct macroblock));
+  f->mbs[U_COMPONENT] = (macroblock*)calloc(cm->num_blocks_chroma, sizeof(struct macroblock));
+  f->mbs[V_COMPONENT] = (macroblock*)calloc(cm->num_blocks_chroma, sizeof(struct macroblock));
 
   // gpu
   if (f->orig != NULL) {
-    CUDA_CHECK(cudaMalloc(&f->orig->d_Y, frame_size));
-    CUDA_CHECK(cudaMalloc(&f->orig->d_U, chroma_size));
-    CUDA_CHECK(cudaMalloc(&f->orig->d_V, chroma_size));
+    CUDA_CHECK(cudaMalloc(&f->orig->d_Y, cm->frame_size));
+    CUDA_CHECK(cudaMalloc(&f->orig->d_U, cm->chroma_size));
+    CUDA_CHECK(cudaMalloc(&f->orig->d_V, cm->chroma_size));
   }
 
-  CUDA_CHECK(cudaMalloc(&f->recons->d_Y, frame_size));
-  CUDA_CHECK(cudaMalloc(&f->recons->d_U, chroma_size));
-  CUDA_CHECK(cudaMalloc(&f->recons->d_V, chroma_size));
+  CUDA_CHECK(cudaMalloc(&f->recons->d_Y, cm->frame_size));
+  CUDA_CHECK(cudaMalloc(&f->recons->d_U, cm->chroma_size));
+  CUDA_CHECK(cudaMalloc(&f->recons->d_V, cm->chroma_size));
 
-  CUDA_CHECK(cudaMalloc(&f->predicted->d_Y, frame_size));
-  CUDA_CHECK(cudaMalloc(&f->predicted->d_U, chroma_size));
-  CUDA_CHECK(cudaMalloc(&f->predicted->d_V, chroma_size));
+  CUDA_CHECK(cudaMalloc(&f->predicted->d_Y, cm->frame_size));
+  CUDA_CHECK(cudaMalloc(&f->predicted->d_U, cm->chroma_size));
+  CUDA_CHECK(cudaMalloc(&f->predicted->d_V, cm->chroma_size));
 
-  CUDA_CHECK(cudaMalloc(&f->residuals->d_Ydct, frame_size * sizeof(int16_t)));
-  CUDA_CHECK(cudaMalloc(&f->residuals->d_Udct, chroma_size * sizeof(int16_t)));
-  CUDA_CHECK(cudaMalloc(&f->residuals->d_Vdct, chroma_size * sizeof(int16_t)));
+  CUDA_CHECK(cudaMalloc(&f->residuals->d_Ydct, cm->frame_size * sizeof(int16_t)));
+  CUDA_CHECK(cudaMalloc(&f->residuals->d_Udct, cm->chroma_size * sizeof(int16_t)));
+  CUDA_CHECK(cudaMalloc(&f->residuals->d_Vdct, cm->chroma_size * sizeof(int16_t)));
 
-  CUDA_CHECK(cudaMalloc(&f->d_mbs[Y_COMPONENT], num_blocks_luma * sizeof(struct macroblock)));
-  CUDA_CHECK(cudaMalloc(&f->d_mbs[U_COMPONENT], num_blocks_chroma * sizeof(struct macroblock)));
-  CUDA_CHECK(cudaMalloc(&f->d_mbs[V_COMPONENT], num_blocks_chroma * sizeof(struct macroblock)));
+  CUDA_CHECK(cudaMalloc(&f->d_mbs[Y_COMPONENT], cm->num_blocks_luma * sizeof(struct macroblock)));
+  CUDA_CHECK(cudaMalloc(&f->d_mbs[U_COMPONENT], cm->num_blocks_chroma * sizeof(struct macroblock)));
+  CUDA_CHECK(cudaMalloc(&f->d_mbs[V_COMPONENT], cm->num_blocks_chroma * sizeof(struct macroblock)));
 
   return f;
 }

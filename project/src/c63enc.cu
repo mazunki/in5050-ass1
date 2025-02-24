@@ -169,6 +169,11 @@ struct c63_common* init_c63_enc(int width, int height)
     cm->quanttbl[V_COMPONENT][i] = uvquanttbl_def[i] / (cm->qp / 10.0);
   }
 
+  cm->frame_size = cm->ypw * cm->yph;
+  cm->chroma_size = (cm->ypw / 2) * (cm->yph / 2);
+  cm->num_blocks_luma = cm->mb_rows * cm->mb_cols;
+  cm->num_blocks_chroma = (cm->mb_rows / 2) * (cm->mb_cols / 2);
+
   return cm;
 }
 

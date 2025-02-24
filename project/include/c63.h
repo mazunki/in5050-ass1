@@ -100,6 +100,9 @@ struct c63_common
   int width, height;
   int ypw, yph, upw, uph, vpw, vph;
 
+  size_t frame_size, chroma_size;
+  size_t num_blocks_luma, num_blocks_chroma;
+
   int padw[COLOR_COMPONENTS], padh[COLOR_COMPONENTS];
 
   int mb_cols, mb_rows;

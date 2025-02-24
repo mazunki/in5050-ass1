@@ -324,6 +324,12 @@ void parse_sof0(struct c63_common *cm)
     cm->mb_rows = cm->yph / 8;
 
     cm->curframe = 0;
+
+    cm->frame_size = cm->ypw * cm->yph;
+    cm->chroma_size = (cm->ypw/2) * (cm->yph/2);
+    cm->num_blocks_luma = cm->mb_rows * cm->mb_cols;
+    cm->num_blocks_chroma = (cm->mb_rows/2) * (cm->mb_cols/2);
+
   }
 
   /* Advance to next frame */

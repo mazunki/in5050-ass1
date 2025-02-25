@@ -103,8 +103,8 @@ struct c63_pipeline {
   struct c63_output *output;
 
   // cuda streams
-  cudaStream_t stream_memcpy;
-  cudaStream_t stream_compute;
+  cudaStream_t stream_transfer_input, stream_transfer_output;
+  cudaStream_t stream_estimate, stream_compensate;
 
   // device memory
   uint8_t *d_orig_Y, *d_orig_U, *d_orig_V;

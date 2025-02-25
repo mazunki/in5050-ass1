@@ -16,8 +16,10 @@ struct c63_pipeline* c63_pipeline_init(size_t frame_size, size_t chroma_size, si
   if (pipe == NULL) { return NULL; }
 
   // streams
-  CUDA_CHECK(cudaStreamCreate(&pipe->stream_memcpy));
-  CUDA_CHECK(cudaStreamCreate(&pipe->stream_compute));
+  CUDA_CHECK(cudaStreamCreate(&pipe->stream_estimate));
+  CUDA_CHECK(cudaStreamCreate(&pipe->stream_compensate));
+  CUDA_CHECK(cudaStreamCreate(&pipe->stream_transfer_input));
+  CUDA_CHECK(cudaStreamCreate(&pipe->stream_transfer_output));
 
   // pinned cpu
   pipe->input = (struct c63_input*)calloc(1, sizeof(struct c63_input));
@@ -122,8 +124,10 @@ void c63_pipeline_free(struct c63_pipeline *pipe)
   CUDA_CHECK(cudaFree(pipe->d_mbs[V_COMPONENT]));
 
   // streams
-  CUDA_CHECK(cudaStreamDestroy(pipe->stream_memcpy));
-  CUDA_CHECK(cudaStreamDestroy(pipe->stream_compute));
+  CUDA_CHECK(cudaStreamDestroy(pipe->stream_estimate));
+  CUDA_CHECK(cudaStreamDestroy(pipe->stream_compensate));
+  CUDA_CHECK(cudaStreamDestroy(pipe->stream_transfer_input));
+  CUDA_CHECK(cudaStreamDestroy(pipe->stream_transfer_output));
 
   free(pipe);
 }

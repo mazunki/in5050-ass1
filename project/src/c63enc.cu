@@ -103,6 +103,10 @@ static void c63_encode_image(struct c63_common *cm)
     CUDA_CHECK(cudaMemcpy(pipe->d_orig_U, pipe->input->h_orig->U, cm->chroma_size, cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(pipe->d_orig_V, pipe->input->h_orig->V, cm->chroma_size, cudaMemcpyHostToDevice));
 
+    CUDA_CHECK(cudaMemcpy(pipe->d_refframe_Y, pipe->input->h_refframe->Y, cm->frame_size, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(pipe->d_refframe_U, pipe->input->h_refframe->U, cm->chroma_size, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(pipe->d_refframe_V, pipe->input->h_refframe->V, cm->chroma_size, cudaMemcpyHostToDevice));
+
     c63_motion_estimate(cm);
 
     CUDA_CHECK(cudaStreamSynchronize(pipe->stream_estimate));

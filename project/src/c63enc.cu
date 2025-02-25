@@ -133,18 +133,18 @@ static void c63_encode_image(struct c63_common *cm)
           @param[in]  predicted
           @param[out] residuals
   */
-  dct_quantize(cm->pipe->input->h_orig->Y, cm->pipe->output->h_predicted->Y, cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], cm->pipe->output->h_residuals->Ydct, cm->quanttbl[Y_COMPONENT]);
-  dct_quantize(cm->pipe->input->h_orig->U, cm->pipe->output->h_predicted->U, cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], cm->pipe->output->h_residuals->Udct, cm->quanttbl[U_COMPONENT]);
-  dct_quantize(cm->pipe->input->h_orig->V, cm->pipe->output->h_predicted->V, cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], cm->pipe->output->h_residuals->Vdct, cm->quanttbl[V_COMPONENT]);
+  dct_quantize(cm->curframe->orig->Y, cm->curframe->predicted->Y, cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], cm->curframe->residuals->Ydct, cm->quanttbl[Y_COMPONENT]);
+  dct_quantize(cm->curframe->orig->U, cm->curframe->predicted->U, cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], cm->curframe->residuals->Udct, cm->quanttbl[U_COMPONENT]);
+  dct_quantize(cm->curframe->orig->V, cm->curframe->predicted->V, cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], cm->curframe->residuals->Vdct, cm->quanttbl[V_COMPONENT]);
 
   /* dequantize (slow CPU-only function)
           @param[in]  residuals
           @param[in]  predicted
           @param[out] recons
   */
-  dequantize_idct(cm->pipe->output->h_residuals->Ydct, cm->pipe->output->h_predicted->Y, cm->ypw, cm->yph, cm->pipe->output->h_recons->Y, cm->quanttbl[Y_COMPONENT]);
-  dequantize_idct(cm->pipe->output->h_residuals->Udct, cm->pipe->output->h_predicted->U, cm->upw, cm->uph, cm->pipe->output->h_recons->U, cm->quanttbl[U_COMPONENT]);
-  dequantize_idct(cm->pipe->output->h_residuals->Vdct, cm->pipe->output->h_predicted->V, cm->vpw, cm->vph, cm->pipe->output->h_recons->V, cm->quanttbl[V_COMPONENT]);
+  dequantize_idct(cm->curframe->residuals->Ydct, cm->curframe->predicted->Y, cm->ypw, cm->yph, cm->curframe->recons->Y, cm->quanttbl[Y_COMPONENT]);
+  dequantize_idct(cm->curframe->residuals->Udct, cm->curframe->predicted->U, cm->upw, cm->uph, cm->curframe->recons->U, cm->quanttbl[U_COMPONENT]);
+  dequantize_idct(cm->curframe->residuals->Vdct, cm->curframe->predicted->V, cm->vpw, cm->vph, cm->curframe->recons->V, cm->quanttbl[V_COMPONENT]);
 
   DEBUG("c63enc\n");
   for (int i=0; i<10; i++) {

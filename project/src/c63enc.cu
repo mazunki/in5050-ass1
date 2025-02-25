@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "c63.h"
 #include "c63_write.h"
@@ -80,6 +81,23 @@ static void c63_encode_image(struct c63_common *cm)
     cm->curframe->keyframe = 1;
     cm->frames_since_keyframe = 0;
 
+    memcpy(cm->pipe->input->h_refframe->Y, cm->pipe->output->h_recons->Y, cm->frame_size);
+    memcpy(cm->pipe->input->h_refframe->U, cm->pipe->output->h_recons->U, cm->chroma_size);
+    memcpy(cm->pipe->input->h_refframe->V, cm->pipe->output->h_recons->V, cm->chroma_size);
+
+    memcpy(cm->pipe->input->h_orig->Y, cm->curframe->orig->Y, cm->frame_size);
+    memcpy(cm->pipe->input->h_orig->U, cm->curframe->orig->U, cm->chroma_size);
+    memcpy(cm->pipe->input->h_orig->V, cm->curframe->orig->V, cm->chroma_size);
+
+    memset(cm->pipe->output->h_predicted->Y, 0, cm->frame_size);
+    memset(cm->pipe->output->h_predicted->U, 0, cm->chroma_size);
+    memset(cm->pipe->output->h_predicted->V, 0, cm->chroma_size);
+
+    memset(cm->pipe->output->h_residuals->Ydct, 0, cm->frame_size * sizeof(int16_t));
+    memset(cm->pipe->output->h_residuals->Udct, 0, cm->chroma_size * sizeof(int16_t));
+    memset(cm->pipe->output->h_residuals->Vdct, 0, cm->chroma_size * sizeof(int16_t));
+
+
     fprintf(stderr, " (keyframe) ");
   }
   else { cm->curframe->keyframe = 0; }
@@ -99,20 +117,22 @@ static void c63_encode_image(struct c63_common *cm)
   dct_quantize(cm->pipe->input->h_orig->U, cm->pipe->output->h_predicted->U, cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], cm->pipe->output->h_residuals->Udct, cm->quanttbl[U_COMPONENT]);
   dct_quantize(cm->pipe->input->h_orig->V, cm->pipe->output->h_predicted->V, cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], cm->pipe->output->h_residuals->Vdct, cm->quanttbl[V_COMPONENT]);
 
-  dequantize_idct(cm->pipe->output->h_residuals->Ydct, cm->pipe->output->h_predicted->Y, cm->ypw, cm->yph, cm->pipe->input->h_recons->Y, cm->quanttbl[Y_COMPONENT]);
-  dequantize_idct(cm->pipe->output->h_residuals->Udct, cm->pipe->output->h_predicted->U, cm->upw, cm->uph, cm->pipe->input->h_recons->U, cm->quanttbl[U_COMPONENT]);
-  dequantize_idct(cm->pipe->output->h_residuals->Vdct, cm->pipe->output->h_predicted->V, cm->vpw, cm->vph, cm->pipe->input->h_recons->V, cm->quanttbl[V_COMPONENT]);
+  dequantize_idct(cm->pipe->output->h_residuals->Ydct, cm->pipe->output->h_predicted->Y, cm->ypw, cm->yph, cm->pipe->output->h_recons->Y, cm->quanttbl[Y_COMPONENT]);
+  dequantize_idct(cm->pipe->output->h_residuals->Udct, cm->pipe->output->h_predicted->U, cm->upw, cm->uph, cm->pipe->output->h_recons->U, cm->quanttbl[U_COMPONENT]);
+  dequantize_idct(cm->pipe->output->h_residuals->Vdct, cm->pipe->output->h_predicted->V, cm->vpw, cm->vph, cm->pipe->output->h_recons->V, cm->quanttbl[V_COMPONENT]);
 
   CUDA_CHECK(cudaDeviceSynchronize());
 
   DEBUG("c63enc\n");
   for (int i=0; i<10; i++) {
+    DEBUG("frame %d", cm->framenum);
     DEBUG("MV Y[%d]: (%d, %d)", i, cm->curframe->mbs[Y_COMPONENT][i].mv_x, cm->curframe->mbs[Y_COMPONENT][i].mv_y);
     DEBUG("MV U[%d]: (%d, %d)", i, cm->curframe->mbs[U_COMPONENT][i].mv_x, cm->curframe->mbs[U_COMPONENT][i].mv_y);
     DEBUG("MV V[%d]: (%d, %d)", i, cm->curframe->mbs[V_COMPONENT][i].mv_x, cm->curframe->mbs[V_COMPONENT][i].mv_y);
     DEBUG("predicted [%d]: (%d, %d, %d)", i, cm->curframe->predicted->Y[i], cm->curframe->predicted->U[i], cm->curframe->predicted->V[i]);
     DEBUG("recons [%d]: (%d, %d, %d)", i, cm->curframe->recons->Y[i], cm->curframe->recons->U[i], cm->curframe->recons->V[i]);
     DEBUG("residuals [%d]: (%d, %d, %d)", i, cm->curframe->residuals->Ydct[i], cm->curframe->residuals->Udct[i], cm->curframe->residuals->Vdct[i]);
+    DEBUG("h_refframe [%d]: (%d, %d, %d)", i, cm->pipe->input->h_refframe->Y[i], cm->pipe->input->h_refframe->U[i], cm->pipe->input->h_refframe->V[i]);
   }
   
 
@@ -123,6 +143,7 @@ static void c63_encode_image(struct c63_common *cm)
 
   ++cm->framenum;
   ++cm->frames_since_keyframe;
+
   DEBUG("frame complete");
 }
 

@@ -85,9 +85,9 @@ __host__ void c63_motion_estimate(struct c63_common *cm)
   CUDA_CHECK(cudaMemcpy(pipe->d_orig_U, pipe->input->h_orig->U, cm->chroma_size, cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemcpy(pipe->d_orig_V, pipe->input->h_orig->V, cm->chroma_size, cudaMemcpyHostToDevice));
 
-  CUDA_CHECK(cudaMemcpy(pipe->d_refframe_Y, pipe->input->h_recons->Y, cm->frame_size, cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(pipe->d_refframe_U, pipe->input->h_recons->U, cm->chroma_size, cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(pipe->d_refframe_V, pipe->input->h_recons->V, cm->chroma_size, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(pipe->d_refframe_Y, pipe->input->h_refframe->Y, cm->frame_size, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(pipe->d_refframe_U, pipe->input->h_refframe->U, cm->chroma_size, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(pipe->d_refframe_V, pipe->input->h_refframe->V, cm->chroma_size, cudaMemcpyHostToDevice));
 
   c63_motion_estimate_kernel<<<grid_size, block_size>>>(pipe->d_orig_Y, pipe->d_refframe_Y, pipe->d_mbs[Y_COMPONENT], cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], cm->me_search_range);
   CUDA_ASSERT();
@@ -140,7 +140,7 @@ __host__ void c63_motion_compensate_cuda(struct c63_common *cm)
     for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x)
     {
       struct macroblock *mb = &cm->curframe->mbs[Y_COMPONENT][mb_y * (cm->padw[Y_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
-      mc_block_8x8(mb, mb_x, mb_y, pipe->output->h_predicted->Y, pipe->input->h_recons->Y, cm->padw[Y_COMPONENT]);
+      mc_block_8x8(mb, mb_x, mb_y, pipe->output->h_predicted->Y, pipe->input->h_refframe->Y, cm->padw[Y_COMPONENT]);
     }
   }
 
@@ -150,10 +150,10 @@ __host__ void c63_motion_compensate_cuda(struct c63_common *cm)
     for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x)
     {
       struct macroblock *mb_u = &cm->curframe->mbs[U_COMPONENT][mb_y * (cm->padw[U_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
-      mc_block_8x8(mb_u, mb_x, mb_y, pipe->output->h_predicted->U, pipe->input->h_recons->U, cm->padw[U_COMPONENT]);
+      mc_block_8x8(mb_u, mb_x, mb_y, pipe->output->h_predicted->U, pipe->input->h_refframe->U, cm->padw[U_COMPONENT]);
 
       struct macroblock *mb_v = &cm->curframe->mbs[V_COMPONENT][mb_y * (cm->padw[V_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
-      mc_block_8x8(mb_v, mb_x, mb_y, pipe->output->h_predicted->V, pipe->input->h_recons->V, cm->padw[V_COMPONENT]);
+      mc_block_8x8(mb_v, mb_x, mb_y, pipe->output->h_predicted->V, pipe->input->h_refframe->V, cm->padw[V_COMPONENT]);
     }
   }
 

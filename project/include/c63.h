@@ -108,11 +108,10 @@ struct c63_pipeline {
 
   // device memory
   uint8_t *d_orig_Y, *d_orig_U, *d_orig_V;
-  uint8_t *d_refframe_Y, *d_refframe_U, *d_refframe_V;
   uint8_t *d_recons_Y, *d_recons_U, *d_recons_V;
+  uint8_t *d_refframe_Y, *d_refframe_U, *d_refframe_V;
   uint8_t *d_predicted_Y, *d_predicted_U, *d_predicted_V;
 
-  int16_t *d_residuals_Y, *d_residuals_U, *d_residuals_V;
   macroblock *d_mbs[COLOR_COMPONENTS];
 };
 

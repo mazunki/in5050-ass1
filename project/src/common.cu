@@ -67,10 +67,6 @@ struct c63_pipeline* c63_pipeline_init(size_t frame_size, size_t chroma_size, si
   CUDA_CHECK(cudaMalloc((void**)&pipe->d_predicted_U, chroma_size));
   CUDA_CHECK(cudaMalloc((void**)&pipe->d_predicted_V, chroma_size));
 
-  CUDA_CHECK(cudaMalloc((void**)&pipe->d_residuals_Y, frame_size * sizeof(int16_t)));
-  CUDA_CHECK(cudaMalloc((void**)&pipe->d_residuals_U, chroma_size * sizeof(int16_t)));
-  CUDA_CHECK(cudaMalloc((void**)&pipe->d_residuals_V, chroma_size * sizeof(int16_t)));
-
   CUDA_CHECK(cudaMalloc((void**)&pipe->d_mbs[Y_COMPONENT], num_blocks_luma * sizeof(struct macroblock)));
   CUDA_CHECK(cudaMalloc((void**)&pipe->d_mbs[U_COMPONENT], num_blocks_chroma * sizeof(struct macroblock)));
   CUDA_CHECK(cudaMalloc((void**)&pipe->d_mbs[V_COMPONENT], num_blocks_chroma * sizeof(struct macroblock)));
@@ -115,9 +111,10 @@ void c63_pipeline_free(struct c63_pipeline *pipe)
   CUDA_CHECK(cudaFree(pipe->d_recons_U));
   CUDA_CHECK(cudaFree(pipe->d_recons_V));
 
-  CUDA_CHECK(cudaFree(pipe->d_residuals_Y));
-  CUDA_CHECK(cudaFree(pipe->d_residuals_U));
-  CUDA_CHECK(cudaFree(pipe->d_residuals_V));
+  CUDA_CHECK(cudaFree(pipe->d_refframe_Y));
+  CUDA_CHECK(cudaFree(pipe->d_refframe_U));
+  CUDA_CHECK(cudaFree(pipe->d_refframe_V));
+
 
   CUDA_CHECK(cudaFree(pipe->d_mbs[Y_COMPONENT]));
   CUDA_CHECK(cudaFree(pipe->d_mbs[U_COMPONENT]));

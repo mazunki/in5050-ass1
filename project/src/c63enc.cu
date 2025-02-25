@@ -95,7 +95,11 @@ static void c63_encode_image(struct c63_common *cm)
 
   if (!cm->curframe->keyframe)
   {
-    /* Motion Estimation */
+    /* Motion Estimation
+          @param[in] d_orig
+          @param[in] d_recons (from last frame)
+          @param[out] d_mbs
+    */
     CUDA_CHECK(cudaMemcpy(pipe->d_orig_Y, pipe->input->h_orig->Y, cm->frame_size, cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(pipe->d_orig_U, pipe->input->h_orig->U, cm->chroma_size, cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(pipe->d_orig_V, pipe->input->h_orig->V, cm->chroma_size, cudaMemcpyHostToDevice));
@@ -105,22 +109,37 @@ static void c63_encode_image(struct c63_common *cm)
     CUDA_CHECK(cudaMemcpy(pipe->d_refframe_V, pipe->input->h_refframe->V, cm->chroma_size, cudaMemcpyHostToDevice));
 
     c63_motion_estimate(cm);
+
+    /* Motion Compensation (gpu function)
+          @param[in] d_mbs
+          @param[out] d_predicted
+          @param[in] d_ref
+    */
     CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[Y_COMPONENT], pipe->d_mbs[Y_COMPONENT], cm->num_blocks_luma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[U_COMPONENT], pipe->d_mbs[U_COMPONENT], cm->num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[V_COMPONENT], pipe->d_mbs[V_COMPONENT], cm->num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
 
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    /* Motion Compensation */
     c63_motion_compensate_cuda(cm);
   }
 
   CUDA_CHECK(cudaDeviceSynchronize());
 
+   /* quantize (slow CPU-only function)
+          @param[in]  orig
+          @param[in]  predicted
+          @param[out] residuals
+  */
   dct_quantize(cm->pipe->input->h_orig->Y, cm->pipe->output->h_predicted->Y, cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], cm->pipe->output->h_residuals->Ydct, cm->quanttbl[Y_COMPONENT]);
   dct_quantize(cm->pipe->input->h_orig->U, cm->pipe->output->h_predicted->U, cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], cm->pipe->output->h_residuals->Udct, cm->quanttbl[U_COMPONENT]);
   dct_quantize(cm->pipe->input->h_orig->V, cm->pipe->output->h_predicted->V, cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], cm->pipe->output->h_residuals->Vdct, cm->quanttbl[V_COMPONENT]);
 
+  /* dequantize (slow CPU-only function)
+          @param[in]  residuals
+          @param[in]  predicted
+          @param[out] recons
+  */
   dequantize_idct(cm->pipe->output->h_residuals->Ydct, cm->pipe->output->h_predicted->Y, cm->ypw, cm->yph, cm->pipe->output->h_recons->Y, cm->quanttbl[Y_COMPONENT]);
   dequantize_idct(cm->pipe->output->h_residuals->Udct, cm->pipe->output->h_predicted->U, cm->upw, cm->uph, cm->pipe->output->h_recons->U, cm->quanttbl[U_COMPONENT]);
   dequantize_idct(cm->pipe->output->h_residuals->Vdct, cm->pipe->output->h_predicted->V, cm->vpw, cm->vph, cm->pipe->output->h_recons->V, cm->quanttbl[V_COMPONENT]);
@@ -143,6 +162,11 @@ static void c63_encode_image(struct c63_common *cm)
   /* Function dump_image(), found in common.c, can be used here to check if the
      prediction is correct */
 
+  /* save buffer (slow write-to-disk function)
+         @param[in]  cm->curframe->residuals->{Y,U,V}dct
+         @param[in]  mb->curframe->mbs
+         @param[out] cm->e_ctx.fp (write to disk)
+  */
   write_frame(cm);
 
   ++cm->framenum;

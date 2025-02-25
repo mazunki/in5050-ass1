@@ -87,14 +87,13 @@ struct frame
 };
 
 struct c63_input {
-  uint8_t *h_orig_Y, *h_orig_U, *h_orig_V;
-  uint8_t *h_refframe_Y, *h_refframe_U, *h_refframe_V;
+  yuv_t *h_orig;    // new image
+  yuv_t *h_recons;  // from prev frame
 };
 
 struct c63_output {
-  int16_t *h_residuals_Y, *h_residuals_U, *h_residuals_V;
-  uint8_t *h_predicted_Y, *h_predicted_U, *h_predicted_V;
-  macroblock *h_mbs[COLOR_COMPONENTS];
+  yuv_t *h_predicted;  // after motion estimation
+  dct_t *h_residuals;  // after motion compensation
 };
 
 struct c63_pipeline {
@@ -106,16 +105,10 @@ struct c63_pipeline {
   cudaStream_t stream_memcpy;
   cudaStream_t stream_compute;
 
-  // pinned cpu
-  yuv_t *h_recons;
-  yuv_t *h_predicted;
-  dct_t *h_residuals;
-
   // device memory
   uint8_t *d_orig_Y, *d_orig_U, *d_orig_V;
   uint8_t *d_refframe_Y, *d_refframe_U, *d_refframe_V;
   uint8_t *d_predicted_Y, *d_predicted_U, *d_predicted_V;
-  uint8_t *d_recons_Y, *d_recons_U, *d_recons_V;
 
   int16_t *d_residuals_Y, *d_residuals_U, *d_residuals_V;
   macroblock *d_mbs[COLOR_COMPONENTS];

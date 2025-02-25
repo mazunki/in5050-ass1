@@ -19,49 +19,31 @@ struct c63_pipeline* c63_pipeline_init(size_t frame_size, size_t chroma_size, si
   CUDA_CHECK(cudaStreamCreate(&pipe->stream_memcpy));
   CUDA_CHECK(cudaStreamCreate(&pipe->stream_compute));
 
-  pipe->h_recons = (yuv_t*)calloc(1, sizeof(yuv_t));
-  CUDA_CHECK(cudaHostAlloc((void **)&pipe->h_recons->Y, frame_size, cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void **)&pipe->h_recons->U, chroma_size, cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void **)&pipe->h_recons->V, chroma_size, cudaHostAllocMapped));
-
-  pipe->h_predicted = (yuv_t*)calloc(1, sizeof(yuv_t));
-  CUDA_CHECK(cudaHostAlloc((void **)&pipe->h_predicted->Y, frame_size, cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void **)&pipe->h_predicted->U, chroma_size, cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void **)&pipe->h_predicted->V, chroma_size, cudaHostAllocMapped));
-
-  pipe->h_residuals = (dct_t*)calloc(1, sizeof(dct_t));
-  CUDA_CHECK(cudaHostAlloc((void **)&pipe->h_residuals->Ydct, frame_size, cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void **)&pipe->h_residuals->Udct, chroma_size, cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void **)&pipe->h_residuals->Vdct, chroma_size, cudaHostAllocMapped));
-
-
   // pinned cpu
   pipe->input = (struct c63_input*)calloc(1, sizeof(struct c63_input));
-
-  CUDA_CHECK(cudaHostAlloc((void**)&pipe->input->h_orig_Y, frame_size, cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void**)&pipe->input->h_orig_U, chroma_size, cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void**)&pipe->input->h_orig_V, chroma_size, cudaHostAllocMapped));
-
-  CUDA_CHECK(cudaHostAlloc((void**)&pipe->input->h_refframe_Y, frame_size, cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void**)&pipe->input->h_refframe_U, chroma_size, cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void**)&pipe->input->h_refframe_V, chroma_size, cudaHostAllocMapped));
-
-
   pipe->output = (struct c63_output*)calloc(1, sizeof(struct c63_output));
 
-  CUDA_CHECK(cudaHostAlloc((void **)&pipe->output->h_predicted_Y, frame_size, cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void **)&pipe->output->h_predicted_U, chroma_size, cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void **)&pipe->output->h_predicted_V, chroma_size, cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->input->h_orig, sizeof(yuv_t), cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->input->h_orig->Y, frame_size, cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->input->h_orig->U, chroma_size, cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->input->h_orig->V, chroma_size, cudaHostAllocMapped));
 
-  CUDA_CHECK(cudaHostAlloc((void **)&pipe->output->h_residuals_Y, frame_size * sizeof(int16_t), cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void **)&pipe->output->h_residuals_U, chroma_size * sizeof(int16_t), cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void **)&pipe->output->h_residuals_V, chroma_size * sizeof(int16_t), cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->input->h_recons, sizeof(yuv_t), cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->input->h_recons->Y, frame_size, cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->input->h_recons->U, chroma_size, cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->input->h_recons->V, chroma_size, cudaHostAllocMapped));
 
-  CUDA_CHECK(cudaHostAlloc((void**)&pipe->output->h_mbs[Y_COMPONENT], macroblock_count*sizeof(struct macroblock), cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void**)&pipe->output->h_mbs[U_COMPONENT], macroblock_count*sizeof(struct macroblock), cudaHostAllocMapped));
-  CUDA_CHECK(cudaHostAlloc((void**)&pipe->output->h_mbs[V_COMPONENT], macroblock_count*sizeof(struct macroblock), cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->output->h_predicted, sizeof(yuv_t), cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->output->h_predicted->Y, frame_size, cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->output->h_predicted->U, chroma_size, cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->output->h_predicted->V, chroma_size, cudaHostAllocMapped));
 
-  // gpu
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->output->h_residuals, sizeof(dct_t), cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->output->h_residuals->Ydct, frame_size * sizeof(int16_t), cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->output->h_residuals->Udct, chroma_size * sizeof(int16_t), cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostAlloc((void**)&pipe->output->h_residuals->Vdct, chroma_size * sizeof(int16_t), cudaHostAllocMapped));
+
+  // gpu memory
   CUDA_CHECK(cudaMalloc((void**)&pipe->d_orig_Y, frame_size));
   CUDA_CHECK(cudaMalloc((void**)&pipe->d_orig_U, chroma_size));
   CUDA_CHECK(cudaMalloc((void**)&pipe->d_orig_V, chroma_size));
@@ -70,23 +52,17 @@ struct c63_pipeline* c63_pipeline_init(size_t frame_size, size_t chroma_size, si
   CUDA_CHECK(cudaMalloc((void**)&pipe->d_refframe_U, chroma_size));
   CUDA_CHECK(cudaMalloc((void**)&pipe->d_refframe_V, chroma_size));
 
-  CUDA_CHECK(cudaMalloc((void **)&pipe->d_predicted_Y, frame_size * sizeof(uint8_t)));
-  CUDA_CHECK(cudaMalloc((void **)&pipe->d_predicted_U, chroma_size * sizeof(uint8_t)));
-  CUDA_CHECK(cudaMalloc((void **)&pipe->d_predicted_V, chroma_size * sizeof(uint8_t)));
+  CUDA_CHECK(cudaMalloc((void**)&pipe->d_predicted_Y, frame_size));
+  CUDA_CHECK(cudaMalloc((void**)&pipe->d_predicted_U, chroma_size));
+  CUDA_CHECK(cudaMalloc((void**)&pipe->d_predicted_V, chroma_size));
 
-  CUDA_CHECK(cudaMalloc((void **)&pipe->d_recons_Y, frame_size * sizeof(uint8_t)));
-  CUDA_CHECK(cudaMalloc((void **)&pipe->d_recons_U, chroma_size * sizeof(uint8_t)));
-  CUDA_CHECK(cudaMalloc((void **)&pipe->d_recons_V, chroma_size * sizeof(uint8_t)));
+  CUDA_CHECK(cudaMalloc((void**)&pipe->d_residuals_Y, frame_size * sizeof(int16_t)));
+  CUDA_CHECK(cudaMalloc((void**)&pipe->d_residuals_U, chroma_size * sizeof(int16_t)));
+  CUDA_CHECK(cudaMalloc((void**)&pipe->d_residuals_V, chroma_size * sizeof(int16_t)));
 
-  CUDA_CHECK(cudaMalloc((void **)&pipe->d_residuals_Y, frame_size * sizeof(int16_t)));
-  CUDA_CHECK(cudaMalloc((void **)&pipe->d_residuals_U, chroma_size * sizeof(int16_t)));
-  CUDA_CHECK(cudaMalloc((void **)&pipe->d_residuals_V, chroma_size * sizeof(int16_t)));
-
-
-  CUDA_CHECK(cudaMalloc((void**)&pipe->d_mbs[Y_COMPONENT], macroblock_count*sizeof(struct macroblock)));
-  CUDA_CHECK(cudaMalloc((void**)&pipe->d_mbs[U_COMPONENT], macroblock_count*sizeof(struct macroblock)));
-  CUDA_CHECK(cudaMalloc((void**)&pipe->d_mbs[V_COMPONENT], macroblock_count*sizeof(struct macroblock)));
-
+  CUDA_CHECK(cudaMalloc((void**)&pipe->d_mbs[Y_COMPONENT], macroblock_count * sizeof(struct macroblock)));
+  CUDA_CHECK(cudaMalloc((void**)&pipe->d_mbs[U_COMPONENT], macroblock_count * sizeof(struct macroblock)));
+  CUDA_CHECK(cudaMalloc((void**)&pipe->d_mbs[V_COMPONENT], macroblock_count * sizeof(struct macroblock)));
 
   return pipe;
 }
@@ -96,25 +72,28 @@ void c63_pipeline_free(struct c63_pipeline *pipe)
   if (pipe == NULL) { return; }
 
   // cpu
-  CUDA_CHECK(cudaFreeHost(pipe->input->h_orig_Y));
-  CUDA_CHECK(cudaFreeHost(pipe->input->h_orig_U));
-  CUDA_CHECK(cudaFreeHost(pipe->input->h_orig_V));
+  CUDA_CHECK(cudaFreeHost(pipe->input->h_orig->Y));
+  CUDA_CHECK(cudaFreeHost(pipe->input->h_orig->U));
+  CUDA_CHECK(cudaFreeHost(pipe->input->h_orig->V));
+  CUDA_CHECK(cudaFreeHost(pipe->input->h_orig));
 
-  CUDA_CHECK(cudaFreeHost(pipe->input->h_refframe_Y));
-  CUDA_CHECK(cudaFreeHost(pipe->input->h_refframe_U));
-  CUDA_CHECK(cudaFreeHost(pipe->input->h_refframe_V));
+  CUDA_CHECK(cudaFreeHost(pipe->input->h_recons->Y));
+  CUDA_CHECK(cudaFreeHost(pipe->input->h_recons->U));
+  CUDA_CHECK(cudaFreeHost(pipe->input->h_recons->V));
+  CUDA_CHECK(cudaFreeHost(pipe->input->h_recons));
 
-  CUDA_CHECK(cudaFreeHost(pipe->output->h_residuals_Y));
-  CUDA_CHECK(cudaFreeHost(pipe->output->h_residuals_U));
-  CUDA_CHECK(cudaFreeHost(pipe->output->h_residuals_V));
+  CUDA_CHECK(cudaFreeHost(pipe->output->h_predicted->Y));
+  CUDA_CHECK(cudaFreeHost(pipe->output->h_predicted->U));
+  CUDA_CHECK(cudaFreeHost(pipe->output->h_predicted->V));
+  CUDA_CHECK(cudaFreeHost(pipe->output->h_predicted));
 
-  CUDA_CHECK(cudaFreeHost(pipe->output->h_mbs[Y_COMPONENT]));
-  CUDA_CHECK(cudaFreeHost(pipe->output->h_mbs[U_COMPONENT]));
-  CUDA_CHECK(cudaFreeHost(pipe->output->h_mbs[V_COMPONENT]));
+  CUDA_CHECK(cudaFreeHost(pipe->output->h_residuals->Ydct));
+  CUDA_CHECK(cudaFreeHost(pipe->output->h_residuals->Udct));
+  CUDA_CHECK(cudaFreeHost(pipe->output->h_residuals->Vdct));
+  CUDA_CHECK(cudaFreeHost(pipe->output->h_residuals));
 
   free(pipe->input);
   free(pipe->output);
-
 
   // gpu
   CUDA_CHECK(cudaFree(pipe->d_orig_Y));
@@ -129,10 +108,6 @@ void c63_pipeline_free(struct c63_pipeline *pipe)
   CUDA_CHECK(cudaFree(pipe->d_residuals_U));
   CUDA_CHECK(cudaFree(pipe->d_residuals_V));
 
-  CUDA_CHECK(cudaFree(pipe->d_recons_Y));
-  CUDA_CHECK(cudaFree(pipe->d_recons_U));
-  CUDA_CHECK(cudaFree(pipe->d_recons_V));
-
   CUDA_CHECK(cudaFree(pipe->d_mbs[Y_COMPONENT]));
   CUDA_CHECK(cudaFree(pipe->d_mbs[U_COMPONENT]));
   CUDA_CHECK(cudaFree(pipe->d_mbs[V_COMPONENT]));
@@ -144,6 +119,42 @@ void c63_pipeline_free(struct c63_pipeline *pipe)
   free(pipe);
 }
 
+struct frame* create_frame_cuda(struct c63_common *cm)
+{
+  frame *f = (frame*)malloc(sizeof(struct frame));
+  if (f == NULL) { return NULL; }
+
+  f->orig = cm->pipe->input->h_orig;
+  f->recons = cm->pipe->input->h_recons;
+  f->predicted = cm->pipe->output->h_predicted;
+  f->residuals = cm->pipe->output->h_residuals;
+
+  f->mbs[Y_COMPONENT] = (macroblock*)calloc(cm->num_blocks_luma, sizeof(struct macroblock));
+  f->mbs[U_COMPONENT] = (macroblock*)calloc(cm->num_blocks_chroma, sizeof(struct macroblock));
+  f->mbs[V_COMPONENT] = (macroblock*)calloc(cm->num_blocks_chroma, sizeof(struct macroblock));
+
+  return f;
+}
+
+void destroy_frame_cuda(struct frame *f)
+{
+  if (f == NULL) { return; }
+  free(f->mbs[Y_COMPONENT]);
+  free(f->mbs[U_COMPONENT]);
+  free(f->mbs[V_COMPONENT]);
+
+  free(f);
+}
+
+void dump_image(yuv_t *image, int w, int h, FILE *fp)
+{
+  fwrite(image->Y, 1, w*h, fp);
+  fwrite(image->U, 1, w*h/4, fp);
+  fwrite(image->V, 1, w*h/4, fp);
+}
+
+
+// used by the decoder
 struct frame* create_frame(struct c63_common *cm, yuv_t *image)
 {
   frame *f = (frame*)malloc(sizeof(struct frame));
@@ -209,57 +220,3 @@ void destroy_frame(struct frame *f)
 }
 
 
-struct frame* create_frame_cuda(struct c63_common *cm)
-{
-  frame *f = (frame*)malloc(sizeof(struct frame));
-  if (f == NULL) { return NULL; }
-
-  f->orig = (yuv_t *)malloc(sizeof(yuv_t));
-  if (f->orig == NULL) {
-    free(f);
-    return NULL;
-  }
-
-  // cpu
-  f->orig->Y = cm->pipe->input->h_orig_Y;
-  f->orig->U = cm->pipe->input->h_orig_U;
-  f->orig->V = cm->pipe->input->h_orig_V;
-
-  f->mbs[Y_COMPONENT] = cm->pipe->output->h_mbs[Y_COMPONENT];
-  f->mbs[U_COMPONENT] = cm->pipe->output->h_mbs[U_COMPONENT];
-  f->mbs[V_COMPONENT] = cm->pipe->output->h_mbs[V_COMPONENT];
-
-  f->recons = cm->pipe->h_recons;
-  f->predicted = cm->pipe->h_predicted;
-  f->residuals = cm->pipe->h_residuals;
-
-  f->predicted->Y = cm->pipe->h_predicted->Y;
-  f->predicted->U = cm->pipe->h_predicted->U;
-  f->predicted->V = cm->pipe->h_predicted->V;
-
-  f->recons->Y = cm->pipe->h_recons->Y;
-  f->recons->U = cm->pipe->h_recons->U;
-  f->recons->V = cm->pipe->h_recons->V;
-
-  f->residuals->Ydct = cm->pipe->h_residuals->Ydct;
-  f->residuals->Udct = cm->pipe->h_residuals->Udct;
-  f->residuals->Vdct = cm->pipe->h_residuals->Vdct;
-
-  return f;
-}
-
-void destroy_frame_cuda(struct frame *f)
-{
-  /* First frame doesn't have a reconstructed frame to destroy */
-  if (f == NULL) { return; }
-
-  free(f->orig);
-  free(f);
-}
-
-void dump_image(yuv_t *image, int w, int h, FILE *fp)
-{
-  fwrite(image->Y, 1, w*h, fp);
-  fwrite(image->U, 1, w*h/4, fp);
-  fwrite(image->V, 1, w*h/4, fp);
-}

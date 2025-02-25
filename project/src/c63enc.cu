@@ -29,9 +29,9 @@ static int read_yuv(FILE *file, struct c63_common *cm)
 {
   size_t len = 0;
 
-  uint8_t *Y = cm->pipe->input->h_orig_Y;
-  uint8_t *U = cm->pipe->input->h_orig_U;
-  uint8_t *V = cm->pipe->input->h_orig_V;
+  uint8_t *Y = cm->pipe->input->h_orig->Y;
+  uint8_t *U = cm->pipe->input->h_orig->U;
+  uint8_t *V = cm->pipe->input->h_orig->V;
 
   /* Read Y. The size of Y is the same as the size of the image. The indices
      represents the color component (0 is Y, 1 is U, and 2 is V) */
@@ -93,26 +93,26 @@ static void c63_encode_image(struct c63_common *cm)
     c63_motion_compensate_cuda(cm);
   }
 
-  /* DCT and Quantization */
-  dct_quantize(cm->curframe->orig->Y, cm->pipe->output->h_predicted_Y, cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], cm->curframe->residuals->Ydct, cm->quanttbl[Y_COMPONENT]);
+  CUDA_CHECK(cudaDeviceSynchronize());
 
-  dct_quantize(cm->curframe->orig->U, cm->pipe->output->h_predicted_U, cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], cm->curframe->residuals->Udct, cm->quanttbl[U_COMPONENT]);
+  dct_quantize(cm->pipe->input->h_orig->Y, cm->pipe->output->h_predicted->Y, cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], cm->pipe->output->h_residuals->Ydct, cm->quanttbl[Y_COMPONENT]);
+  dct_quantize(cm->pipe->input->h_orig->U, cm->pipe->output->h_predicted->U, cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], cm->pipe->output->h_residuals->Udct, cm->quanttbl[U_COMPONENT]);
+  dct_quantize(cm->pipe->input->h_orig->V, cm->pipe->output->h_predicted->V, cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], cm->pipe->output->h_residuals->Vdct, cm->quanttbl[V_COMPONENT]);
 
-  dct_quantize(cm->curframe->orig->V, cm->pipe->output->h_predicted_V, cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], cm->curframe->residuals->Vdct, cm->quanttbl[V_COMPONENT]);
+  dequantize_idct(cm->pipe->output->h_residuals->Ydct, cm->pipe->output->h_predicted->Y, cm->ypw, cm->yph, cm->pipe->input->h_recons->Y, cm->quanttbl[Y_COMPONENT]);
+  dequantize_idct(cm->pipe->output->h_residuals->Udct, cm->pipe->output->h_predicted->U, cm->upw, cm->uph, cm->pipe->input->h_recons->U, cm->quanttbl[U_COMPONENT]);
+  dequantize_idct(cm->pipe->output->h_residuals->Vdct, cm->pipe->output->h_predicted->V, cm->vpw, cm->vph, cm->pipe->input->h_recons->V, cm->quanttbl[V_COMPONENT]);
 
-  /* Reconstruct frame for inter-prediction */
-  dequantize_idct(cm->curframe->residuals->Ydct, cm->pipe->output->h_predicted_Y, cm->ypw, cm->yph, cm->curframe->recons->Y, cm->quanttbl[Y_COMPONENT]);
-  dequantize_idct(cm->curframe->residuals->Udct, cm->pipe->output->h_predicted_U, cm->upw, cm->uph, cm->curframe->recons->U, cm->quanttbl[U_COMPONENT]);
-  dequantize_idct(cm->curframe->residuals->Vdct, cm->pipe->output->h_predicted_V, cm->vpw, cm->vph, cm->curframe->recons->V, cm->quanttbl[V_COMPONENT]);
+  CUDA_CHECK(cudaDeviceSynchronize());
 
   DEBUG("c63enc\n");
   for (int i=0; i<10; i++) {
     DEBUG("MV Y[%d]: (%d, %d)", i, cm->curframe->mbs[Y_COMPONENT][i].mv_x, cm->curframe->mbs[Y_COMPONENT][i].mv_y);
     DEBUG("MV U[%d]: (%d, %d)", i, cm->curframe->mbs[U_COMPONENT][i].mv_x, cm->curframe->mbs[U_COMPONENT][i].mv_y);
     DEBUG("MV V[%d]: (%d, %d)", i, cm->curframe->mbs[V_COMPONENT][i].mv_x, cm->curframe->mbs[V_COMPONENT][i].mv_y);
-    DEBUG("predicted [%d]: (%d, %d, %d)", i, cm->curframe->predicted->Y[i], cm->curframe->predicted->U[i], cm->curframe->predicted->U[i]);
-    DEBUG("recons [%d]: (%d, %d, %d)", i, cm->curframe->recons->Y[i], cm->curframe->recons->U[i], cm->curframe->recons->U[i]);
-    DEBUG("residuals [%d]: (%d, %d, %d)", i, cm->curframe->residuals->Ydct[i], cm->curframe->residuals->Udct[i], cm->curframe->residuals->Udct[i]);
+    DEBUG("predicted [%d]: (%d, %d, %d)", i, cm->curframe->predicted->Y[i], cm->curframe->predicted->U[i], cm->curframe->predicted->V[i]);
+    DEBUG("recons [%d]: (%d, %d, %d)", i, cm->curframe->recons->Y[i], cm->curframe->recons->U[i], cm->curframe->recons->V[i]);
+    DEBUG("residuals [%d]: (%d, %d, %d)", i, cm->curframe->residuals->Ydct[i], cm->curframe->residuals->Udct[i], cm->curframe->residuals->Vdct[i]);
   }
   
 

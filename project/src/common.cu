@@ -19,7 +19,8 @@ struct c63_pipeline* c63_pipeline_init(size_t frame_size, size_t chroma_size, si
   CUDA_CHECK(cudaStreamCreate(&pipe->stream_estimate));
   CUDA_CHECK(cudaStreamCreate(&pipe->stream_compensate));
   CUDA_CHECK(cudaStreamCreate(&pipe->stream_transfer_input));
-  CUDA_CHECK(cudaStreamCreate(&pipe->stream_transfer_output));
+  CUDA_CHECK(cudaStreamCreate(&pipe->stream_transfer_macroblocks));
+  CUDA_CHECK(cudaStreamCreate(&pipe->stream_transfer_predictions));
 
   // pinned cpu
   pipe->input = (struct c63_input*)calloc(1, sizeof(struct c63_input));
@@ -124,13 +125,16 @@ void c63_pipeline_free(struct c63_pipeline *pipe)
   CUDA_CHECK(cudaStreamDestroy(pipe->stream_estimate));
   CUDA_CHECK(cudaStreamDestroy(pipe->stream_compensate));
   CUDA_CHECK(cudaStreamDestroy(pipe->stream_transfer_input));
-  CUDA_CHECK(cudaStreamDestroy(pipe->stream_transfer_output));
+  CUDA_CHECK(cudaStreamDestroy(pipe->stream_transfer_macroblocks));
+  CUDA_CHECK(cudaStreamDestroy(pipe->stream_transfer_predictions));
 
   free(pipe);
 }
 
 struct frame* prepare_next_frame(struct c63_common *cm)
 {
+  c63_pipeline *pipe = cm->pipe;
+
   // move old out of the way
   destroy_frame_cuda(cm->refframe);
   cm->refframe = cm->curframe;
@@ -140,6 +144,10 @@ struct frame* prepare_next_frame(struct c63_common *cm)
   if (f == NULL) { return NULL; }
 
   f->orig = cm->pipe->input->h_orig;
+
+  CUDA_CHECK(cudaMemcpyAsync(pipe->d_orig_Y, f->orig->Y, cm->frame_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
+  CUDA_CHECK(cudaMemcpyAsync(pipe->d_orig_U, f->orig->U, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
+  CUDA_CHECK(cudaMemcpyAsync(pipe->d_orig_V, f->orig->V, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
 
   if (cm->frames_since_keyframe != 0)
   {

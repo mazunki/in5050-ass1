@@ -99,40 +99,34 @@ static void c63_encode_image(struct c63_common *cm)
           @param[in] d_recons (from last frame)
           @param[out] d_mbs
     */
-    CUDA_CHECK(cudaMemcpy(pipe->d_orig_Y, pipe->input->h_orig->Y, cm->frame_size, cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(pipe->d_orig_U, pipe->input->h_orig->U, cm->chroma_size, cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(pipe->d_orig_V, pipe->input->h_orig->V, cm->chroma_size, cudaMemcpyHostToDevice));
-
-    CUDA_CHECK(cudaMemcpy(pipe->d_refframe_Y, pipe->input->h_refframe->Y, cm->frame_size, cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(pipe->d_refframe_U, pipe->input->h_refframe->U, cm->chroma_size, cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(pipe->d_refframe_V, pipe->input->h_refframe->V, cm->chroma_size, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaStreamSynchronize(pipe->stream_transfer_input));
 
     c63_motion_estimate(cm);
 
     CUDA_CHECK(cudaStreamSynchronize(pipe->stream_estimate));
-    CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[Y_COMPONENT], pipe->d_mbs[Y_COMPONENT], cm->num_blocks_luma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[U_COMPONENT], pipe->d_mbs[U_COMPONENT], cm->num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[V_COMPONENT], pipe->d_mbs[V_COMPONENT], cm->num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpyAsync(cm->curframe->mbs[Y_COMPONENT], pipe->d_mbs[Y_COMPONENT], cm->num_blocks_luma * sizeof(struct macroblock), cudaMemcpyDeviceToHost, pipe->stream_transfer_macroblocks));
+    CUDA_CHECK(cudaMemcpyAsync(cm->curframe->mbs[U_COMPONENT], pipe->d_mbs[U_COMPONENT], cm->num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost, pipe->stream_transfer_macroblocks));
+    CUDA_CHECK(cudaMemcpyAsync(cm->curframe->mbs[V_COMPONENT], pipe->d_mbs[V_COMPONENT], cm->num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost, pipe->stream_transfer_macroblocks));
 
     /* Motion Compensation (gpu function)
           @param[in] d_mbs
           @param[out] d_predicted
           @param[in] d_ref
     */
-
     c63_motion_compensate_cuda(cm);
 
     CUDA_CHECK(cudaStreamSynchronize(pipe->stream_compensate));
-    CUDA_CHECK(cudaMemcpy(pipe->output->h_predicted->Y, pipe->d_predicted_Y, cm->frame_size, cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(pipe->output->h_predicted->U, pipe->d_predicted_U, cm->chroma_size, cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(pipe->output->h_predicted->V, pipe->d_predicted_V, cm->chroma_size, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpyAsync(pipe->output->h_predicted->Y, pipe->d_predicted_Y, cm->frame_size, cudaMemcpyDeviceToHost, pipe->stream_transfer_predictions));
+    CUDA_CHECK(cudaMemcpyAsync(pipe->output->h_predicted->U, pipe->d_predicted_U, cm->chroma_size, cudaMemcpyDeviceToHost, pipe->stream_transfer_predictions));
+    CUDA_CHECK(cudaMemcpyAsync(pipe->output->h_predicted->V, pipe->d_predicted_V, cm->chroma_size, cudaMemcpyDeviceToHost, pipe->stream_transfer_predictions));
   }
 
-   /* quantize (slow CPU-only function)
+  /* quantize (slow CPU-only function)
           @param[in]  orig
           @param[in]  predicted
           @param[out] residuals
   */
+  CUDA_CHECK(cudaStreamSynchronize(pipe->stream_transfer_predictions));
   dct_quantize(cm->curframe->orig->Y, cm->curframe->predicted->Y, cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], cm->curframe->residuals->Ydct, cm->quanttbl[Y_COMPONENT]);
   dct_quantize(cm->curframe->orig->U, cm->curframe->predicted->U, cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], cm->curframe->residuals->Udct, cm->quanttbl[U_COMPONENT]);
   dct_quantize(cm->curframe->orig->V, cm->curframe->predicted->V, cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], cm->curframe->residuals->Vdct, cm->quanttbl[V_COMPONENT]);
@@ -146,7 +140,11 @@ static void c63_encode_image(struct c63_common *cm)
   dequantize_idct(cm->curframe->residuals->Udct, cm->curframe->predicted->U, cm->upw, cm->uph, cm->curframe->recons->U, cm->quanttbl[U_COMPONENT]);
   dequantize_idct(cm->curframe->residuals->Vdct, cm->curframe->predicted->V, cm->vpw, cm->vph, cm->curframe->recons->V, cm->quanttbl[V_COMPONENT]);
 
-  DEBUG("c63enc\n");
+  // we no longer need recons, ready it already
+  CUDA_CHECK(cudaMemcpyAsync(pipe->d_recons_Y, pipe->output->h_recons->Y, cm->frame_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
+  CUDA_CHECK(cudaMemcpyAsync(pipe->d_recons_U, pipe->output->h_recons->U, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
+  CUDA_CHECK(cudaMemcpyAsync(pipe->d_recons_V, pipe->output->h_recons->V, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
+
   for (int i=0; i<10; i++) {
     DEBUG("frame %d", cm->framenum);
     DEBUG("MV Y[%d]: (%d, %d)", i, cm->curframe->mbs[Y_COMPONENT][i].mv_x, cm->curframe->mbs[Y_COMPONENT][i].mv_y);
@@ -167,6 +165,7 @@ static void c63_encode_image(struct c63_common *cm)
          @param[in]  mb->curframe->mbs
          @param[out] cm->e_ctx.fp (write to disk)
   */
+  CUDA_CHECK(cudaStreamSynchronize(pipe->stream_transfer_macroblocks));
   write_frame(cm);
 
   ++cm->framenum;

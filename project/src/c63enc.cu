@@ -80,13 +80,13 @@ static void c63_encode_image(struct c63_common *cm)
     cm->curframe->keyframe = 1;
     cm->frames_since_keyframe = 0;
 
-    memset(cm->pipe->output->h_predicted->Y, 0, cm->frame_size);
-    memset(cm->pipe->output->h_predicted->U, 0, cm->chroma_size);
-    memset(cm->pipe->output->h_predicted->V, 0, cm->chroma_size);
+    cudaMemset(cm->pipe->output->h_predicted->Y, 0, cm->frame_size);
+    cudaMemset(cm->pipe->output->h_predicted->U, 0, cm->chroma_size);
+    cudaMemset(cm->pipe->output->h_predicted->V, 0, cm->chroma_size);
 
-    memset(cm->pipe->output->h_residuals->Ydct, 0, cm->frame_size * sizeof(int16_t));
-    memset(cm->pipe->output->h_residuals->Udct, 0, cm->chroma_size * sizeof(int16_t));
-    memset(cm->pipe->output->h_residuals->Vdct, 0, cm->chroma_size * sizeof(int16_t));
+    cudaMemset(cm->pipe->output->h_residuals->Ydct, 0, cm->frame_size * sizeof(int16_t));
+    cudaMemset(cm->pipe->output->h_residuals->Udct, 0, cm->chroma_size * sizeof(int16_t));
+    cudaMemset(cm->pipe->output->h_residuals->Vdct, 0, cm->chroma_size * sizeof(int16_t));
 
 
     fprintf(stderr, " (keyframe) ");

@@ -89,14 +89,18 @@ __host__ void c63_motion_estimate(struct c63_common *cm)
   CUDA_CHECK(cudaMemcpy(pipe->d_refframe_U, pipe->input->h_recons->U, cm->chroma_size, cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemcpy(pipe->d_refframe_V, pipe->input->h_recons->V, cm->chroma_size, cudaMemcpyHostToDevice));
 
-  c63_motion_estimate_kernel<<<grid_size, block_size>>>(pipe->d_orig_Y, pipe->d_refframe_Y, cm->pipe->d_mbs[Y_COMPONENT], cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], cm->me_search_range);
+  c63_motion_estimate_kernel<<<grid_size, block_size>>>(pipe->d_orig_Y, pipe->d_refframe_Y, pipe->d_mbs[Y_COMPONENT], cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], cm->me_search_range);
   CUDA_ASSERT();
 
-  c63_motion_estimate_kernel<<<grid_size, block_size>>>(pipe->d_orig_U, pipe->d_refframe_U, cm->pipe->d_mbs[U_COMPONENT], cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], cm->me_search_range/2);
+  c63_motion_estimate_kernel<<<grid_size, block_size>>>(pipe->d_orig_U, pipe->d_refframe_U, pipe->d_mbs[U_COMPONENT], cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], cm->me_search_range/2);
   CUDA_ASSERT();
 
-  c63_motion_estimate_kernel<<<grid_size, block_size>>>(pipe->d_orig_V, pipe->d_refframe_V, cm->pipe->d_mbs[V_COMPONENT], cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], cm->me_search_range/2);
+  c63_motion_estimate_kernel<<<grid_size, block_size>>>(pipe->d_orig_V, pipe->d_refframe_V, pipe->d_mbs[V_COMPONENT], cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], cm->me_search_range/2);
   CUDA_ASSERT();
+
+  CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[Y_COMPONENT], pipe->d_mbs[Y_COMPONENT], cm->num_blocks_luma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[U_COMPONENT], pipe->d_mbs[U_COMPONENT], cm->num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[V_COMPONENT], pipe->d_mbs[V_COMPONENT], cm->num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
 
   CUDA_CHECK(cudaDeviceSynchronize());
 }

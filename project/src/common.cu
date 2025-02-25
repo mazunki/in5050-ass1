@@ -10,7 +10,7 @@
 
 #include "common.h"
 
-struct c63_pipeline* c63_pipeline_init(size_t frame_size, size_t chroma_size, size_t macroblock_count)
+struct c63_pipeline* c63_pipeline_init(size_t frame_size, size_t chroma_size, size_t num_blocks_luma, size_t num_blocks_chroma)
 {
   struct c63_pipeline *pipe = (c63_pipeline*) calloc(1, sizeof(struct c63_pipeline));
   if (pipe == NULL) { return NULL; }
@@ -60,9 +60,9 @@ struct c63_pipeline* c63_pipeline_init(size_t frame_size, size_t chroma_size, si
   CUDA_CHECK(cudaMalloc((void**)&pipe->d_residuals_U, chroma_size * sizeof(int16_t)));
   CUDA_CHECK(cudaMalloc((void**)&pipe->d_residuals_V, chroma_size * sizeof(int16_t)));
 
-  CUDA_CHECK(cudaMalloc((void**)&pipe->d_mbs[Y_COMPONENT], macroblock_count * sizeof(struct macroblock)));
-  CUDA_CHECK(cudaMalloc((void**)&pipe->d_mbs[U_COMPONENT], macroblock_count * sizeof(struct macroblock)));
-  CUDA_CHECK(cudaMalloc((void**)&pipe->d_mbs[V_COMPONENT], macroblock_count * sizeof(struct macroblock)));
+  CUDA_CHECK(cudaMalloc((void**)&pipe->d_mbs[Y_COMPONENT], num_blocks_luma * sizeof(struct macroblock)));
+  CUDA_CHECK(cudaMalloc((void**)&pipe->d_mbs[U_COMPONENT], num_blocks_chroma * sizeof(struct macroblock)));
+  CUDA_CHECK(cudaMalloc((void**)&pipe->d_mbs[V_COMPONENT], num_blocks_chroma * sizeof(struct macroblock)));
 
   return pipe;
 }

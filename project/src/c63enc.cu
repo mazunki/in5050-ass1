@@ -167,7 +167,7 @@ struct c63_common* init_c63_enc(int width, int height)
   cm->num_blocks_chroma = (cm->mb_rows / 2) * (cm->mb_cols / 2);
   cm->macroblock_count = cm->num_blocks_luma + 2 * cm->num_blocks_chroma;
 
-  cm->pipe = c63_pipeline_init(cm->frame_size, cm->chroma_size, cm->macroblock_count);
+  cm->pipe = c63_pipeline_init(cm->frame_size, cm->chroma_size, cm->num_blocks_luma, cm->num_blocks_chroma);
 
   return cm;
 }

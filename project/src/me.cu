@@ -14,8 +14,12 @@
 #include "tables.h"
 #include "common.h"
 
-#define CUDA_THREADS_PER_BLOCK_X 16
-#define CUDA_THREADS_PER_BLOCK_Y 16
+#define CUDA_ESTIMATE_THREADS_PER_BLOCK_X 16
+#define CUDA_ESTIMATE_THREADS_PER_BLOCK_Y 16
+
+#define CUDA_COMPENSATE_THREADS_PER_BLOCK_X 16
+#define CUDA_COMPENSATE_THREADS_PER_BLOCK_Y 16
+
 
 __device__ static int sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride)
 {
@@ -76,7 +80,7 @@ __global__ void c63_motion_estimate_kernel(uint8_t *d_orig, uint8_t *d_recons, m
 
 __host__ void c63_motion_estimate(struct c63_common *cm)
 {
-  dim3 block_size(CUDA_THREADS_PER_BLOCK_X, CUDA_THREADS_PER_BLOCK_Y);
+  dim3 block_size(CUDA_ESTIMATE_THREADS_PER_BLOCK_X, CUDA_ESTIMATE_THREADS_PER_BLOCK_Y);
   dim3 grid_size(cm->padw[Y_COMPONENT] / MACROBLOCK_SIZE, cm->padh[Y_COMPONENT] / MACROBLOCK_SIZE);
 
   c63_pipeline *pipe = cm->pipe;
@@ -109,7 +113,7 @@ __host__ void c63_motion_estimate(struct c63_common *cm)
 
 
 /* Motion compensation for 8x8 block */
-static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
+__host__ __device__ static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
                          uint8_t *predicted, uint8_t *ref, int padw)
 {
   if (!mb->use_mv) { return; }
@@ -161,6 +165,7 @@ __host__ void c63_motion_compensate_cuda(struct c63_common *cm)
 }
 
 
+// non-cuda version used by decoder
 void c63_motion_compensate(struct c63_common *cm)
 {
   int mb_x, mb_y;

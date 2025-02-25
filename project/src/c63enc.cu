@@ -69,6 +69,8 @@ static int read_yuv(FILE *file, struct c63_common *cm)
 
 static void c63_encode_image(struct c63_common *cm)
 {
+  c63_pipeline *pipe = cm->pipe;
+
   DEBUG("frame start");
   cm->curframe = prepare_next_frame(cm);
 
@@ -77,14 +79,6 @@ static void c63_encode_image(struct c63_common *cm)
   {
     cm->curframe->keyframe = 1;
     cm->frames_since_keyframe = 0;
-
-    memcpy(cm->pipe->input->h_refframe->Y, cm->pipe->output->h_recons->Y, cm->frame_size);
-    memcpy(cm->pipe->input->h_refframe->U, cm->pipe->output->h_recons->U, cm->chroma_size);
-    memcpy(cm->pipe->input->h_refframe->V, cm->pipe->output->h_recons->V, cm->chroma_size);
-
-    memcpy(cm->pipe->input->h_orig->Y, cm->curframe->orig->Y, cm->frame_size);
-    memcpy(cm->pipe->input->h_orig->U, cm->curframe->orig->U, cm->chroma_size);
-    memcpy(cm->pipe->input->h_orig->V, cm->curframe->orig->V, cm->chroma_size);
 
     memset(cm->pipe->output->h_predicted->Y, 0, cm->frame_size);
     memset(cm->pipe->output->h_predicted->U, 0, cm->chroma_size);

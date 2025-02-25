@@ -109,7 +109,7 @@ static void c63_encode_image(struct c63_common *cm)
 
     c63_motion_estimate(cm);
 
-    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaStreamSynchronize(pipe->stream_estimate));
     CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[Y_COMPONENT], pipe->d_mbs[Y_COMPONENT], cm->num_blocks_luma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[U_COMPONENT], pipe->d_mbs[U_COMPONENT], cm->num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[V_COMPONENT], pipe->d_mbs[V_COMPONENT], cm->num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
@@ -122,7 +122,7 @@ static void c63_encode_image(struct c63_common *cm)
 
     c63_motion_compensate_cuda(cm);
 
-    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaStreamSynchronize(pipe->stream_compensate));
     CUDA_CHECK(cudaMemcpy(pipe->output->h_predicted->Y, pipe->d_predicted_Y, cm->frame_size, cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(pipe->output->h_predicted->U, pipe->d_predicted_U, cm->chroma_size, cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(pipe->output->h_predicted->V, pipe->d_predicted_V, cm->chroma_size, cudaMemcpyDeviceToHost));

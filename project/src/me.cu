@@ -64,6 +64,12 @@ __device__ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
   mb->use_mv = 1;
 }
 
+
+/**
+@param[in] d_orig
+@param[in] d_recons (from last frame)
+@param[out] d_mbs
+*/
 __global__ void c63_motion_estimate_kernel(uint8_t *d_orig, uint8_t *d_recons, macroblock *d_mbs, int width, int height, int range)
 {
   int mb_x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -120,36 +126,50 @@ __host__ __device__ static void mc_block_8x8(struct macroblock *mb, int mb_x, in
   }
 }
 
+
+
+/**
+@param[in] d_mbs
+@param[out] d_predicted
+@param[in] d_ref
+*/
+__global__ void c63_motion_compensate_kernel(macroblock *d_mbs, int mb_cols, int mb_rows,
+                                             uint8_t *d_predicted, uint8_t *d_ref, int padw)
+{
+  int mb_x = blockIdx.x * blockDim.x + threadIdx.x;
+  int mb_y = blockIdx.y * blockDim.y + threadIdx.y;
+
+  if (mb_x >= mb_cols || mb_y >= mb_rows) {
+    return;
+  }
+
+  macroblock *mb = &d_mbs[mb_y * mb_cols + mb_x];
+  if (!mb->use_mv) {
+    return;
+  }
+
+  mc_block_8x8(mb, mb_x, mb_y, d_predicted, d_ref, padw);
+}
+
 __host__ void c63_motion_compensate_cuda(struct c63_common *cm)
 {
-  int mb_x, mb_y;
+  dim3 block_size(CUDA_COMPENSATE_THREADS_PER_BLOCK_X, CUDA_COMPENSATE_THREADS_PER_BLOCK_Y);
+  dim3 grid_size(cm->padw[Y_COMPONENT] / MACROBLOCK_SIZE, cm->padh[Y_COMPONENT] / MACROBLOCK_SIZE);
+
   c63_pipeline *pipe = cm->pipe;
 
   /* Luma */
-  for (mb_y = 0; mb_y < cm->mb_rows; ++mb_y)
-  {
-    for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x)
-    {
-      struct macroblock *mb = &cm->curframe->mbs[Y_COMPONENT][mb_y * (cm->padw[Y_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
-      mc_block_8x8(mb, mb_x, mb_y, pipe->output->h_predicted->Y, pipe->input->h_refframe->Y, cm->padw[Y_COMPONENT]);
-    }
-  }
+  c63_motion_compensate_kernel<<<grid_size, block_size>>>(pipe->d_mbs[Y_COMPONENT], cm->mb_cols, cm->mb_rows, pipe->d_predicted_Y, pipe->d_refframe_Y, cm->padw[Y_COMPONENT]);
+  CUDA_ASSERT();
 
   /* Chroma */
-  for (mb_y = 0; mb_y < cm->mb_rows / 2; ++mb_y)
-  {
-    for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x)
-    {
-      struct macroblock *mb_u = &cm->curframe->mbs[U_COMPONENT][mb_y * (cm->padw[U_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
-      mc_block_8x8(mb_u, mb_x, mb_y, pipe->output->h_predicted->U, pipe->input->h_refframe->U, cm->padw[U_COMPONENT]);
+  c63_motion_compensate_kernel<<<grid_size, block_size>>>(pipe->d_mbs[U_COMPONENT], cm->mb_cols/2, cm->mb_rows/2, pipe->d_predicted_U, pipe->d_refframe_U, cm->padw[U_COMPONENT]);
+  CUDA_ASSERT();
 
-      struct macroblock *mb_v = &cm->curframe->mbs[V_COMPONENT][mb_y * (cm->padw[V_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
-      mc_block_8x8(mb_v, mb_x, mb_y, pipe->output->h_predicted->V, pipe->input->h_refframe->V, cm->padw[V_COMPONENT]);
-    }
-  }
-
-  CUDA_CHECK(cudaDeviceSynchronize());
+  c63_motion_compensate_kernel<<<grid_size, block_size>>>(pipe->d_mbs[V_COMPONENT], cm->mb_cols/2, cm->mb_rows/2, pipe->d_predicted_V, pipe->d_refframe_V, cm->padw[V_COMPONENT]);
+  CUDA_ASSERT();
 }
+
 
 
 // non-cuda version used by decoder

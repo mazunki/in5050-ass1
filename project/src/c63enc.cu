@@ -122,6 +122,11 @@ static void c63_encode_image(struct c63_common *cm)
     CUDA_CHECK(cudaDeviceSynchronize());
 
     c63_motion_compensate_cuda(cm);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    CUDA_CHECK(cudaMemcpy(pipe->output->h_predicted->Y, pipe->d_predicted_Y, cm->frame_size, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(pipe->output->h_predicted->U, pipe->d_predicted_U, cm->chroma_size, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(pipe->output->h_predicted->V, pipe->d_predicted_V, cm->chroma_size, cudaMemcpyDeviceToHost));
   }
 
   CUDA_CHECK(cudaDeviceSynchronize());

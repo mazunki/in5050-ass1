@@ -70,10 +70,7 @@ static int read_yuv(FILE *file, struct c63_common *cm)
 static void c63_encode_image(struct c63_common *cm)
 {
   DEBUG("frame start");
-  /* Advance to next frame */
-  destroy_frame_cuda(cm->refframe);
-  cm->refframe = cm->curframe;
-  cm->curframe = create_frame_cuda(cm);
+  cm->curframe = prepare_next_frame(cm);
 
   /* Check if keyframe */
   if (cm->framenum == 0 || cm->frames_since_keyframe == cm->keyframe_interval)

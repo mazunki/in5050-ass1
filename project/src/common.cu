@@ -128,8 +128,13 @@ void c63_pipeline_free(struct c63_pipeline *pipe)
   free(pipe);
 }
 
-struct frame* create_frame_cuda(struct c63_common *cm)
+struct frame* prepare_next_frame(struct c63_common *cm)
 {
+  // move old out of the way
+  destroy_frame_cuda(cm->refframe);
+  cm->refframe = cm->curframe;
+
+  // new frame
   frame *f = (frame*)malloc(sizeof(struct frame));
   if (f == NULL) { return NULL; }
 
@@ -140,6 +145,10 @@ struct frame* create_frame_cuda(struct c63_common *cm)
     yuv_t *temp = cm->pipe->input->h_refframe;
     cm->pipe->input->h_refframe = cm->pipe->output->h_recons;
     cm->pipe->output->h_recons = temp;
+
+    cm->pipe->d_refframe_Y = cm->pipe->d_recons_Y;
+    cm->pipe->d_refframe_U = cm->pipe->d_recons_U;
+    cm->pipe->d_refframe_V = cm->pipe->d_recons_V;
   }
 
   f->recons = cm->pipe->output->h_recons;
@@ -149,7 +158,6 @@ struct frame* create_frame_cuda(struct c63_common *cm)
   f->mbs[Y_COMPONENT] = (macroblock*)calloc(cm->num_blocks_luma, sizeof(struct macroblock));
   f->mbs[U_COMPONENT] = (macroblock*)calloc(cm->num_blocks_chroma, sizeof(struct macroblock));
   f->mbs[V_COMPONENT] = (macroblock*)calloc(cm->num_blocks_chroma, sizeof(struct macroblock));
-
 
   return f;
 }

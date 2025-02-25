@@ -15,7 +15,6 @@
 #include "tables.h"
 #include "common.h"
 
-#define MACROBLOCK_SIZE 8
 #define CUDA_THREADS_PER_BLOCK_X 16
 #define CUDA_THREADS_PER_BLOCK_Y 16
 
@@ -88,42 +87,46 @@ __global__ void c63_motion_estimate_kernel(uint8_t *d_orig, uint8_t *d_recons, m
 
 __host__ void c63_motion_estimate(struct c63_common *cm)
 {
-  /* Compare this frame with previous reconstructed frame */
-  int range = cm->me_search_range;
-
   dim3 block_size(CUDA_THREADS_PER_BLOCK_X, CUDA_THREADS_PER_BLOCK_Y);
   dim3 grid_size(cm->padw[Y_COMPONENT] / MACROBLOCK_SIZE, cm->padh[Y_COMPONENT] / MACROBLOCK_SIZE);
 
-  CUDA_CHECK(cudaMemcpy(cm->curframe->orig->d_Y, cm->curframe->orig->Y, cm->frame_size, cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(cm->curframe->orig->d_U, cm->curframe->orig->U, cm->chroma_size, cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(cm->curframe->orig->d_V, cm->curframe->orig->V, cm->chroma_size, cudaMemcpyHostToDevice));
+  c63_pipeline *pipe = cm->pipe;
 
-  CUDA_CHECK(cudaMemcpy(cm->refframe->recons->d_Y, cm->refframe->recons->Y, cm->frame_size, cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(cm->refframe->recons->d_U, cm->refframe->recons->U, cm->chroma_size, cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(cm->refframe->recons->d_V, cm->refframe->recons->V, cm->chroma_size, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(pipe->d_orig_Y, pipe->input->h_orig_Y, cm->frame_size, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(pipe->d_orig_U, pipe->input->h_orig_U, cm->chroma_size, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(pipe->d_orig_V, pipe->input->h_orig_V, cm->chroma_size, cudaMemcpyHostToDevice));
+
+  CUDA_CHECK(cudaMemcpy(pipe->d_refframe_Y, pipe->input->h_refframe_Y, cm->frame_size, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(pipe->d_refframe_U, pipe->input->h_refframe_U, cm->chroma_size, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(pipe->d_refframe_V, pipe->input->h_refframe_V, cm->chroma_size, cudaMemcpyHostToDevice));
+
 
   /* Luma */
-  c63_motion_estimate_kernel<<<grid_size, block_size>>>(cm->curframe->orig->d_Y, cm->refframe->recons->d_Y, cm->curframe->d_mbs[Y_COMPONENT], cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], range);
+  c63_motion_estimate_kernel<<<grid_size, block_size>>>(pipe->d_orig_Y, pipe->d_recons_Y, cm->pipe->d_mbs[Y_COMPONENT], cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], cm->me_search_range);
   CUDA_ASSERT();
 
   /* Chroma */
-  c63_motion_estimate_kernel<<<grid_size, block_size>>>(cm->curframe->orig->d_U, cm->refframe->recons->d_U, cm->curframe->d_mbs[U_COMPONENT], cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], range/2);
+  c63_motion_estimate_kernel<<<grid_size, block_size>>>(pipe->d_orig_U, pipe->d_recons_U, cm->pipe->d_mbs[U_COMPONENT], cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], cm->me_search_range/2);
   CUDA_ASSERT();
 
-  c63_motion_estimate_kernel<<<grid_size, block_size>>>(cm->curframe->orig->d_V, cm->refframe->recons->d_V, cm->curframe->d_mbs[V_COMPONENT], cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], range/2);
+  c63_motion_estimate_kernel<<<grid_size, block_size>>>(pipe->d_orig_V, pipe->d_recons_V, cm->pipe->d_mbs[V_COMPONENT], cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], cm->me_search_range/2);
   CUDA_ASSERT();
 
   CUDA_CHECK(cudaDeviceSynchronize());
 
-  CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[Y_COMPONENT], cm->curframe->d_mbs[Y_COMPONENT], cm->num_blocks_luma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[U_COMPONENT], cm->curframe->d_mbs[U_COMPONENT], cm->num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaMemcpy(cm->curframe->mbs[V_COMPONENT], cm->curframe->d_mbs[V_COMPONENT], cm->num_blocks_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(pipe->output->h_mbs[Y_COMPONENT], pipe->d_mbs[Y_COMPONENT], cm->macroblock_count * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(pipe->output->h_mbs[U_COMPONENT], pipe->d_mbs[U_COMPONENT], cm->macroblock_count * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(pipe->output->h_mbs[V_COMPONENT], pipe->d_mbs[V_COMPONENT], cm->macroblock_count * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
 
-  CUDA_CHECK(cudaMemcpy(cm->curframe->predicted->Y, cm->curframe->predicted->d_Y, cm->frame_size, cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaMemcpy(cm->curframe->predicted->U, cm->curframe->predicted->d_U, cm->chroma_size, cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaMemcpy(cm->curframe->predicted->V, cm->curframe->predicted->d_V, cm->chroma_size, cudaMemcpyDeviceToHost));
-
+  CUDA_CHECK(cudaDeviceSynchronize());
+  for (int i=0; i<10; ++i) {
+    fprintf(stderr, "MV Y[%d]: (%d, %d)\n", i, pipe->output->h_mbs[Y_COMPONENT][i].mv_x, pipe->output->h_mbs[Y_COMPONENT][i].mv_y);
+    fprintf(stderr, "MV U[%d]: (%d, %d)\n", i, pipe->output->h_mbs[U_COMPONENT][i].mv_x, pipe->output->h_mbs[U_COMPONENT][i].mv_y);
+    fprintf(stderr, "MV V[%d]: (%d, %d)\n", i, pipe->output->h_mbs[V_COMPONENT][i].mv_x, pipe->output->h_mbs[V_COMPONENT][i].mv_y);
+  }
 }
+
+
 
 /* Motion compensation for 8x8 block */
 static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
@@ -143,6 +146,50 @@ static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
     {
       predicted[y * w + x] = ref[(y + mb->mv_y) * w + (x + mb->mv_x)];
     }
+  }
+}
+
+void c63_motion_compensate_cuda(struct c63_common *cm)
+{
+  int mb_x, mb_y;
+  c63_pipeline *pipe = cm->pipe;
+
+  /* Luma */
+  for (mb_y = 0; mb_y < cm->mb_rows; ++mb_y)
+  {
+    for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x)
+    {
+      struct macroblock *mb = &cm->curframe->mbs[Y_COMPONENT][mb_y * (cm->padw[Y_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
+      mc_block_8x8(mb, mb_x, mb_y, pipe->output->h_predicted_Y, pipe->h_recons->Y, cm->padw[Y_COMPONENT]);
+    }
+  }
+
+  /* Chroma */
+  for (mb_y = 0; mb_y < cm->mb_rows / 2; ++mb_y)
+  {
+    for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x)
+    {
+      struct macroblock *mb_u = &cm->curframe->mbs[U_COMPONENT][mb_y * (cm->padw[U_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
+      mc_block_8x8(mb_u, mb_x, mb_y, pipe->output->h_predicted_U, pipe->h_recons->U, cm->padw[U_COMPONENT]);
+
+      struct macroblock *mb_v = &cm->curframe->mbs[V_COMPONENT][mb_y * (cm->padw[V_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
+      mc_block_8x8(mb_v, mb_x, mb_y, pipe->output->h_predicted_V, pipe->h_recons->V, cm->padw[V_COMPONENT]);
+    }
+  }
+
+
+  // CUDA_CHECK(cudaMemcpy(pipe->output->h_residuals_Y, pipe->d_residuals_Y, cm->frame_size, cudaMemcpyDeviceToHost));
+  // CUDA_CHECK(cudaMemcpy(pipe->output->h_residuals_U, pipe->d_residuals_U, cm->chroma_size, cudaMemcpyDeviceToHost));
+  // CUDA_CHECK(cudaMemcpy(pipe->output->h_residuals_V, pipe->d_residuals_V, cm->chroma_size, cudaMemcpyDeviceToHost));
+
+  // CUDA_CHECK(cudaMemcpy(pipe->output->h_mbs[Y_COMPONENT], pipe->d_mbs[Y_COMPONENT], cm->macroblock_count * sizeof(macroblock), cudaMemcpyDeviceToHost));
+  // CUDA_CHECK(cudaMemcpy(pipe->output->h_mbs[U_COMPONENT], pipe->d_mbs[U_COMPONENT], cm->macroblock_count * sizeof(macroblock), cudaMemcpyDeviceToHost));
+  // CUDA_CHECK(cudaMemcpy(pipe->output->h_mbs[V_COMPONENT], pipe->d_mbs[V_COMPONENT], cm->macroblock_count * sizeof(macroblock), cudaMemcpyDeviceToHost));
+
+  // CUDA_CHECK(cudaDeviceSynchronize());
+
+  for (int i=0; i<10; ++i) {
+    fprintf(stderr, "predicted [%d]: (%d, %d, %d)\n", i, pipe->output->h_predicted_Y[i], pipe->output->h_predicted_Y[i], pipe->output->h_predicted_Y[i]);
   }
 }
 

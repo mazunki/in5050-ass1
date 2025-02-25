@@ -335,7 +335,7 @@ void parse_sof0(struct c63_common *cm)
   /* Advance to next frame */
   destroy_frame(cm->refframe);
   cm->refframe = cm->curframe;
-  cm->curframe = create_frame(cm, 0);
+  cm->curframe = create_frame(cm, NULL);
 
   /* Is this a keyframe */
   cm->curframe->keyframe = get_byte(cm->e_ctx.fp);

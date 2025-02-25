@@ -49,10 +49,6 @@ struct yuv
   uint8_t *Y;
   uint8_t *U;
   uint8_t *V;
-
-  uint8_t *d_Y;
-  uint8_t *d_U;
-  uint8_t *d_V;
 };
 
 struct dct
@@ -60,10 +56,6 @@ struct dct
   int16_t *Ydct;
   int16_t *Udct;
   int16_t *Vdct;
-
-  int16_t *d_Ydct;
-  int16_t *d_Udct;
-  int16_t *d_Vdct;
 };
 
 typedef struct yuv yuv_t;
@@ -95,6 +87,41 @@ struct frame
   int keyframe;
 };
 
+struct c63_input {
+  uint8_t *h_orig_Y, *h_orig_U, *h_orig_V;
+  uint8_t *h_refframe_Y, *h_refframe_U, *h_refframe_V;
+};
+
+struct c63_output {
+  int16_t *h_residuals_Y, *h_residuals_U, *h_residuals_V;
+  uint8_t *h_predicted_Y, *h_predicted_U, *h_predicted_V;
+  macroblock *h_mbs[COLOR_COMPONENTS];
+};
+
+struct c63_pipeline {
+  // pipeline anchors [input] => [pipeline] => [output] (per frame)
+  struct c63_input *input;
+  struct c63_output *output;
+
+  // cuda streams
+  cudaStream_t stream_memcpy;
+  cudaStream_t stream_compute;
+
+  // pinned cpu
+  yuv_t *h_recons;
+  yuv_t *h_predicted;
+  dct_t *h_residuals;
+
+  // device memory
+  uint8_t *d_orig_Y, *d_orig_U, *d_orig_V;
+  uint8_t *d_refframe_Y, *d_refframe_U, *d_refframe_V;
+  uint8_t *d_predicted_Y, *d_predicted_U, *d_predicted_V;
+  uint8_t *d_recons_Y, *d_recons_U, *d_recons_V;
+
+  int16_t *d_residuals_Y, *d_residuals_U, *d_residuals_V;
+  macroblock *d_mbs[COLOR_COMPONENTS];
+};
+
 struct c63_common
 {
   int width, height;
@@ -106,6 +133,7 @@ struct c63_common
   int padw[COLOR_COMPONENTS], padh[COLOR_COMPONENTS];
 
   int mb_cols, mb_rows;
+  size_t macroblock_count;
 
   uint8_t qp;                         // Quality parameter
 
@@ -122,6 +150,7 @@ struct c63_common
   int frames_since_keyframe;
 
   struct entropy_ctx e_ctx;
+  struct c63_pipeline *pipe;
 };
 
 #endif  /* C63_C63_H_ */

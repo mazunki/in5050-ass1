@@ -3,6 +3,7 @@ set -eu
 
 PROJECT_USER=in5050-g01
 PROJECT_ROOT="/home/${PROJECT_USER}/in5050-ass1/project"
+SRC_DIR="${PROJECT_ROOT}/src"
 BUILD_DIR="${PROJECT_ROOT}/build"
 WORKDIR="${PROJECT_ROOT}/workdir"
 BUSYFILE="${PROJECT_ROOT}/.busy"
@@ -22,6 +23,7 @@ REPORT_FILE_ENC="encoding.nsys-rep"
 REPORT_FILE_DEC="decoding.nsys-rep"
 VID_INPUT="${ASSETS_DIR}/foreman.yuv"
 VID_FLAGS="$@"
+BUILD_MODE="Debug"
 
 cd "$(dirname "$0")"
 
@@ -43,7 +45,7 @@ pipeline() {
 	(set -x; rsync -av --progress . "${BUILDER}:${PROJECT_ROOT}/")
 
 	echo "[PIPELINE] updating cmake..."
-	builder "cd '${PROJECT_ROOT}' && rm -rf build && cmake -B build -DCMAKE_TOOLCHAIN_FILE=in5050-toolchain.cmake"
+	builder "cd '${PROJECT_ROOT}' && rm -rf build && cmake -B build -DCMAKE_BUILD_TYPE='${BUILD_MODE}' -DCMAKE_TOOLCHAIN_FILE=in5050-toolchain.cmake"
 
 	echo "[PIPELINE] building project..."
 	builder "cd '${BUILD_DIR}' && make"
@@ -51,6 +53,7 @@ pipeline() {
 	echo "[PIPELINE] syncing build machine with gpu machine..."
 	runner "mkdir -p '${WORKDIR}'"
 	(set -x; ssh "${BUILDER}" "rsync -av --progress '${BUILD_DIR}/' '${RUNNER}:${BUILD_DIR}/'")
+	(set -x; ssh "${BUILDER}" "rsync -av --progress '${SRC_DIR}/' '${RUNNER}:${SRC_DIR}/'")
 	
 
 	echo "[PIPELINE] running profiling on gpu machine..."

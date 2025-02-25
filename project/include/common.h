@@ -5,6 +5,8 @@
 
 #include "c63.h"
 
+#define MACROBLOCK_SIZE 8
+
 #define CUDA_CHECK(call)                                                      \
     {                                                                         \
         cudaError_t err = call;                                               \
@@ -30,8 +32,13 @@
 
 // Declarations
 struct frame* create_frame(struct c63_common *cm, yuv_t *image);
-
 void destroy_frame(struct frame *f);
+
+struct frame* create_frame_cuda(struct c63_common *cm);
+void destroy_frame_cuda(struct frame *f);
+
+struct c63_pipeline* c63_pipeline_init(size_t frame_size, size_t chroma_size, size_t macroblock_count);
+void c63_pipeline_free(struct c63_pipeline *pipe);
 
 void dump_image(yuv_t *image, int w, int h, FILE *fp);
 

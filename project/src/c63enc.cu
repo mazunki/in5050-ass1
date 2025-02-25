@@ -68,6 +68,7 @@ static int read_yuv(FILE *file, struct c63_common *cm)
 
 static void c63_encode_image(struct c63_common *cm)
 {
+  DEBUG("frame start");
   /* Advance to next frame */
   destroy_frame_cuda(cm->refframe);
   cm->refframe = cm->curframe;
@@ -100,9 +101,20 @@ static void c63_encode_image(struct c63_common *cm)
   dct_quantize(cm->curframe->orig->V, cm->pipe->output->h_predicted_V, cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], cm->curframe->residuals->Vdct, cm->quanttbl[V_COMPONENT]);
 
   /* Reconstruct frame for inter-prediction */
-  dequantize_idct(cm->curframe->residuals->Ydct, cm->curframe->predicted->Y, cm->ypw, cm->yph, cm->curframe->recons->Y, cm->quanttbl[Y_COMPONENT]);
-  dequantize_idct(cm->curframe->residuals->Udct, cm->curframe->predicted->U, cm->upw, cm->uph, cm->curframe->recons->U, cm->quanttbl[U_COMPONENT]);
-  dequantize_idct(cm->curframe->residuals->Vdct, cm->curframe->predicted->V, cm->vpw, cm->vph, cm->curframe->recons->V, cm->quanttbl[V_COMPONENT]);
+  dequantize_idct(cm->curframe->residuals->Ydct, cm->pipe->output->h_predicted_Y, cm->ypw, cm->yph, cm->curframe->recons->Y, cm->quanttbl[Y_COMPONENT]);
+  dequantize_idct(cm->curframe->residuals->Udct, cm->pipe->output->h_predicted_U, cm->upw, cm->uph, cm->curframe->recons->U, cm->quanttbl[U_COMPONENT]);
+  dequantize_idct(cm->curframe->residuals->Vdct, cm->pipe->output->h_predicted_V, cm->vpw, cm->vph, cm->curframe->recons->V, cm->quanttbl[V_COMPONENT]);
+
+  DEBUG("c63enc\n");
+  for (int i=0; i<10; i++) {
+    DEBUG("MV Y[%d]: (%d, %d)", i, cm->curframe->mbs[Y_COMPONENT][i].mv_x, cm->curframe->mbs[Y_COMPONENT][i].mv_y);
+    DEBUG("MV U[%d]: (%d, %d)", i, cm->curframe->mbs[U_COMPONENT][i].mv_x, cm->curframe->mbs[U_COMPONENT][i].mv_y);
+    DEBUG("MV V[%d]: (%d, %d)", i, cm->curframe->mbs[V_COMPONENT][i].mv_x, cm->curframe->mbs[V_COMPONENT][i].mv_y);
+    DEBUG("predicted [%d]: (%d, %d, %d)", i, cm->curframe->predicted->Y[i], cm->curframe->predicted->U[i], cm->curframe->predicted->U[i]);
+    DEBUG("recons [%d]: (%d, %d, %d)", i, cm->curframe->recons->Y[i], cm->curframe->recons->U[i], cm->curframe->recons->U[i]);
+    DEBUG("residuals [%d]: (%d, %d, %d)", i, cm->curframe->residuals->Ydct[i], cm->curframe->residuals->Udct[i], cm->curframe->residuals->Udct[i]);
+  }
+  
 
   /* Function dump_image(), found in common.c, can be used here to check if the
      prediction is correct */
@@ -111,6 +123,7 @@ static void c63_encode_image(struct c63_common *cm)
 
   ++cm->framenum;
   ++cm->frames_since_keyframe;
+  DEBUG("frame complete");
 }
 
 struct c63_common* init_c63_enc(int width, int height)

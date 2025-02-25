@@ -83,7 +83,6 @@ struct frame
   dct_t *residuals;   // Difference between original image and predicted frame
 
   struct macroblock *mbs[COLOR_COMPONENTS];
-  struct macroblock *d_mbs[COLOR_COMPONENTS];
   int keyframe;
 };
 

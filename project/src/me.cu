@@ -120,9 +120,9 @@ __host__ void c63_motion_estimate(struct c63_common *cm)
 
   CUDA_CHECK(cudaDeviceSynchronize());
   for (int i=0; i<10; ++i) {
-    fprintf(stderr, "MV Y[%d]: (%d, %d)\n", i, pipe->output->h_mbs[Y_COMPONENT][i].mv_x, pipe->output->h_mbs[Y_COMPONENT][i].mv_y);
-    fprintf(stderr, "MV U[%d]: (%d, %d)\n", i, pipe->output->h_mbs[U_COMPONENT][i].mv_x, pipe->output->h_mbs[U_COMPONENT][i].mv_y);
-    fprintf(stderr, "MV V[%d]: (%d, %d)\n", i, pipe->output->h_mbs[V_COMPONENT][i].mv_x, pipe->output->h_mbs[V_COMPONENT][i].mv_y);
+    DEBUG("MV Y[%d]: (%d, %d)", i, pipe->output->h_mbs[Y_COMPONENT][i].mv_x, pipe->output->h_mbs[Y_COMPONENT][i].mv_y);
+    DEBUG("MV U[%d]: (%d, %d)", i, pipe->output->h_mbs[U_COMPONENT][i].mv_x, pipe->output->h_mbs[U_COMPONENT][i].mv_y);
+    DEBUG("MV V[%d]: (%d, %d)", i, pipe->output->h_mbs[V_COMPONENT][i].mv_x, pipe->output->h_mbs[V_COMPONENT][i].mv_y);
   }
 }
 
@@ -189,7 +189,7 @@ void c63_motion_compensate_cuda(struct c63_common *cm)
   // CUDA_CHECK(cudaDeviceSynchronize());
 
   for (int i=0; i<10; ++i) {
-    fprintf(stderr, "predicted [%d]: (%d, %d, %d)\n", i, pipe->output->h_predicted_Y[i], pipe->output->h_predicted_Y[i], pipe->output->h_predicted_Y[i]);
+    DEBUG("predicted [%d]: (%d, %d, %d)", i, pipe->output->h_predicted_Y[i], pipe->output->h_predicted_Y[i], pipe->output->h_predicted_Y[i]);
   }
 }
 

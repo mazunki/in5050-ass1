@@ -245,11 +245,6 @@ struct frame* create_frame_cuda(struct c63_common *cm)
   f->residuals->Udct = cm->pipe->h_residuals->Udct;
   f->residuals->Vdct = cm->pipe->h_residuals->Vdct;
 
-  // gpu
-  f->d_mbs[Y_COMPONENT] = cm->pipe->d_mbs[Y_COMPONENT];
-  f->d_mbs[U_COMPONENT] = cm->pipe->d_mbs[U_COMPONENT];
-  f->d_mbs[V_COMPONENT] = cm->pipe->d_mbs[V_COMPONENT];
-
   return f;
 }
 

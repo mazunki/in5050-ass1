@@ -71,7 +71,7 @@ static void c63_encode_image(struct c63_common *cm)
 {
   c63_pipeline *pipe = cm->pipe;
 
-  DEBUG("frame start");
+  DEBUG("%s", "frame start");
   cm->curframe = prepare_next_frame(cm);
 
   /* Check if keyframe */
@@ -88,7 +88,7 @@ static void c63_encode_image(struct c63_common *cm)
     cudaMemset(cm->pipe->output->h_residuals->Udct, 0, cm->chroma_size * sizeof(int16_t));
     cudaMemset(cm->pipe->output->h_residuals->Vdct, 0, cm->chroma_size * sizeof(int16_t));
 
-    fprintf(stderr, " (keyframe) ");
+    DEBUG("%s", "(keyframe)");
   }
   else { cm->curframe->keyframe = 0; }
 

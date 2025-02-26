@@ -1,0 +1,43 @@
+#+TITLE: IN5050 — Video Encoding on CUDA
+#+AUTHOR: Lise E. Johansen <liseej@uio.no>, Mazunki Hoksaas <rolfvh@uio.no>
+#+LINK: https://www.uio.no/studier/emner/matnat/ifi/IN5050/v25/slides/in5050-exam-01.pdf
+
+Repository for the first assignment of IN5050 by [[https://youtu.be/PfYnvDL0Qcw][Group 1]] (@liseej, @rolfvh).
+
+* Project Layout
+The code related stuff is stored inside the ~projects/~ subdirectory. Documentation is stored under the ~docs/~ subdirectory. The root level directory contains repository metadata.
+
+  - ~docs/precode.git/~ :: Unaltered from upstream.
+  - ~project/src/~ :: Contains the main code.
+  - ~project/build/~ :: Compiled binaries and intermediate files.
+  - ~project/include/~ :: Local header files
+  - ~/usr/local/cuda~ :: Path to CUDA installation. I got mine from [[https://developer.nvidia.com/hpc-sdk-downloads][Nvidia HPC-SDK]], and symlinked the path towards ~/opt/nvidia/hpc_sdk/Linux_x86_64/2025/cuda~ after completing its default installation.
+    
+* Running
+After dependencies are met, building and running the program should be a matter of the following:
+
+After having run ~cmake~ succesfully for the first time, you will get ~compile_commands.json~ available in the build-dir, giving your editor's LSP sufficient information to give meaningful linting.
+
+#+begin_src sh
+  cd project
+
+  test -d build/ && rm -r build/
+  cmake -B build -DCMAKE_TOOLCHAIN_FILE=fedora-toolchain.cmake
+
+  env cmake -B build
+  (cd build; make)
+
+  test -d workdir/ && rm -r workdir/
+  : # encode
+  ../build/c63enc -h '288' -w '352'  -o 'output.c63' '/path/to/assets/foreman.yuv'
+
+  : # decode
+  ../build/c63dec output.c63 output-decoded
+
+  : # check if correct
+  mplayer -demuxer rawvideo -rawvideo w=352:h=288 output-decoded
+
+  : # alternatively check the hash sum of the video(s)
+  sha256sum output-decoded output.c63
+#+end_src
+

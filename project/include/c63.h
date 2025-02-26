@@ -93,7 +93,10 @@ struct c63_common
 
   int padw[COLOR_COMPONENTS], padh[COLOR_COMPONENTS];
 
-  int mb_cols, mb_rows;
+  size_t luma_size, chroma_size;
+  int mb_cols_luma, mb_rows_luma;
+  int mb_cols_chroma, mb_rows_chroma;
+  size_t num_mbs_luma, num_mbs_chroma;
 
   uint8_t qp;                         // Quality parameter
 

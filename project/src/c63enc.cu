@@ -139,8 +139,10 @@ struct c63_common* init_c63_enc(int width, int height)
   cm->padw[V_COMPONENT] = cm->vpw = (uint32_t)(ceil(width*VX/(YX*8.0f))*8);
   cm->padh[V_COMPONENT] = cm->vph = (uint32_t)(ceil(height*VY/(YY*8.0f))*8);
 
-  cm->mb_cols = cm->ypw / MACROBLOCK_SIZE;
-  cm->mb_rows = cm->yph / MACROBLOCK_SIZE;
+  cm->mb_cols_luma = cm->ypw / MACROBLOCK_SIZE;
+  cm->mb_rows_luma = cm->yph / MACROBLOCK_SIZE;
+  cm->mb_cols_chroma = cm->upw / MACROBLOCK_SIZE;
+  cm->mb_rows_chroma = cm->uph / MACROBLOCK_SIZE;
 
   /* Quality parameters -- Home exam deliveries should have original values,
    i.e., quantization factor should be 25, search range should be 16, and the
@@ -156,6 +158,11 @@ struct c63_common* init_c63_enc(int width, int height)
     cm->quanttbl[U_COMPONENT][i] = uvquanttbl_def[i] / (cm->qp / 10.0);
     cm->quanttbl[V_COMPONENT][i] = uvquanttbl_def[i] / (cm->qp / 10.0);
   }
+
+  cm->luma_size = cm->ypw * cm->yph;
+  cm->chroma_size = cm->upw * cm->uph;
+  cm->num_mbs_luma = cm->mb_rows_luma * cm->mb_cols_luma;
+  cm->num_mbs_chroma = cm->mb_rows_chroma * cm->mb_cols_chroma;
 
   return cm;
 }

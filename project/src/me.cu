@@ -44,23 +44,23 @@ void c63_motion_estimate(struct c63_common *cm)
   int mb_x, mb_y;
 
   /* Luma */
-  for (mb_y = 0; mb_y < cm->mb_rows; ++mb_y)
+  for (mb_y = 0; mb_y < cm->mb_rows_luma; ++mb_y)
   {
-    for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x)
+    for (mb_x = 0; mb_x < cm->mb_cols_luma; ++mb_x)
     {
-      struct macroblock *mb = &cm->curframe->mbs[Y_COMPONENT][mb_y*cm->padw[Y_COMPONENT]/MACROBLOCK_SIZE + mb_x];
+      struct macroblock *mb = &cm->curframe->mbs[Y_COMPONENT][mb_y*cm->mb_cols_luma + mb_x];
       me_block_8x8(mb, mb_x, mb_y, cm->curframe->orig->Y, cm->refframe->recons->Y, cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], cm->me_search_range);}
   }
 
   /* Chroma */
-  for (mb_y = 0; mb_y < cm->mb_rows / 2; ++mb_y)
+  for (mb_y = 0; mb_y < cm->mb_rows_chroma; ++mb_y)
   {
-    for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x)
+    for (mb_x = 0; mb_x < cm->mb_cols_chroma; ++mb_x)
     {
-      struct macroblock *mb_U = &cm->curframe->mbs[U_COMPONENT][mb_y*cm->padw[U_COMPONENT]/MACROBLOCK_SIZE + mb_x];
+      struct macroblock *mb_U = &cm->curframe->mbs[U_COMPONENT][mb_y*cm->mb_cols_chroma + mb_x];
       me_block_8x8(mb_U, mb_x, mb_y, cm->curframe->orig->Y, cm->refframe->recons->Y, cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], cm->me_search_range/2);
 
-      struct macroblock *mb_V = &cm->curframe->mbs[V_COMPONENT][mb_y*cm->padw[V_COMPONENT]/MACROBLOCK_SIZE + mb_x];
+      struct macroblock *mb_V = &cm->curframe->mbs[V_COMPONENT][mb_y*cm->mb_cols_chroma + mb_x];
       me_block_8x8(mb_V, mb_x, mb_y, cm->curframe->orig->Y, cm->refframe->recons->Y, cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], cm->me_search_range/2);
     }
   }
@@ -156,24 +156,24 @@ void c63_motion_compensate(struct c63_common *cm)
   int mb_x, mb_y;
 
   /* Luma */
-  for (mb_y = 0; mb_y < cm->mb_rows; ++mb_y)
+  for (mb_y = 0; mb_y < cm->mb_rows_luma; ++mb_y)
   {
-    for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x)
+    for (mb_x = 0; mb_x < cm->mb_cols_luma; ++mb_x)
     {
-      struct macroblock *mb = &cm->curframe->mbs[Y_COMPONENT] [mb_y * (cm->padw[Y_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
+      struct macroblock *mb = &cm->curframe->mbs[Y_COMPONENT] [mb_y * cm->mb_cols_luma + mb_x];
       mc_block_8x8(mb, mb_x, mb_y, cm->curframe->predicted->Y, cm->refframe->recons->Y, cm->padw[Y_COMPONENT]);
     }
   }
 
   /* Chroma */
-  for (mb_y = 0; mb_y < cm->mb_rows / 2; ++mb_y)
+  for (mb_y = 0; mb_y < cm->mb_rows_chroma; ++mb_y)
   {
-    for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x)
+    for (mb_x = 0; mb_x < cm->mb_cols_chroma; ++mb_x)
     {
-      struct macroblock *mb_u = &cm->curframe->mbs[U_COMPONENT][mb_y * (cm->padw[U_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
+      struct macroblock *mb_u = &cm->curframe->mbs[U_COMPONENT][mb_y * cm->mb_cols_chroma + mb_x];
       mc_block_8x8(mb_u, mb_x, mb_y, cm->curframe->predicted->U, cm->refframe->recons->U, cm->padw[U_COMPONENT]);
 
-      struct macroblock *mb_v = &cm->curframe->mbs[V_COMPONENT][mb_y * (cm->padw[V_COMPONENT] / MACROBLOCK_SIZE) + mb_x];
+      struct macroblock *mb_v = &cm->curframe->mbs[V_COMPONENT][mb_y * cm->mb_cols_chroma + mb_x];
       mc_block_8x8(mb_v, mb_x, mb_y, cm->curframe->predicted->V, cm->refframe->recons->V, cm->padw[V_COMPONENT]);
     }
   }

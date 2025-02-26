@@ -313,15 +313,22 @@ void parse_sof0(struct c63_common *cm)
     cm->width = width;
     cm->height = height;
 
-    cm->padw[0] = cm->ypw = (uint32_t)(ceil(width/16.0f)*16);
-    cm->padh[0] = cm->yph = (uint32_t)(ceil(height/16.0f)*16);
-    cm->padw[1] = cm->upw = (uint32_t)(ceil(width*UX/(YX*8.0f))*8);
-    cm->padh[1] = cm->uph = (uint32_t)(ceil(height*UY/(YY*8.0f))*8);
-    cm->padw[2] = cm->vpw = (uint32_t)(ceil(width*VX/(YX*8.0f))*8);
-    cm->padh[2] = cm->vph = (uint32_t)(ceil(height*VY/(YY*8.0f))*8);
+    cm->padw[Y_COMPONENT] = cm->ypw = (uint32_t)(ceil(width/16.0f)*16);
+    cm->padh[Y_COMPONENT] = cm->yph = (uint32_t)(ceil(height/16.0f)*16);
+    cm->padw[U_COMPONENT] = cm->upw = (uint32_t)(ceil(width*UX/(YX*8.0f))*8);
+    cm->padh[U_COMPONENT] = cm->uph = (uint32_t)(ceil(height*UY/(YY*8.0f))*8);
+    cm->padw[V_COMPONENT] = cm->vpw = (uint32_t)(ceil(width*VX/(YX*8.0f))*8);
+    cm->padh[V_COMPONENT] = cm->vph = (uint32_t)(ceil(height*VY/(YY*8.0f))*8);
 
-    cm->mb_cols = cm->ypw / 8;
-    cm->mb_rows = cm->yph / 8;
+    cm->mb_cols_luma = cm->ypw / MACROBLOCK_SIZE;
+    cm->mb_rows_luma = cm->yph / MACROBLOCK_SIZE;
+    cm->mb_cols_chroma = cm->upw / MACROBLOCK_SIZE;
+    cm->mb_rows_chroma = cm->uph / MACROBLOCK_SIZE;
+
+    cm->luma_size = cm->ypw * cm->yph;
+    cm->chroma_size = cm->upw * cm->uph;
+    cm->num_mbs_luma = cm->mb_rows_luma * cm->mb_cols_luma;
+    cm->num_mbs_chroma = cm->mb_rows_chroma * cm->mb_cols_chroma;
 
     cm->curframe = 0;
   }

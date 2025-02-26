@@ -67,6 +67,15 @@ struct frame* create_frame(struct c63_common *cm, yuv_t *image)
   return f;
 }
 
+struct frame* prepare_next_frame(struct c63_common *cm, yuv_t *image)
+{
+  // move old out of the way
+  destroy_frame(cm->refframe);
+  cm->refframe = cm->curframe;
+
+  return create_frame(cm, image);
+}
+
 void dump_image(yuv_t *image, int w, int h, FILE *fp)
 {
   fwrite(image->Y, 1, w*h, fp);

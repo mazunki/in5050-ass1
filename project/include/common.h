@@ -39,6 +39,8 @@ struct frame* create_frame(struct c63_common *cm, yuv_t *image);
 
 void destroy_frame(struct frame *f);
 
+struct frame* prepare_next_frame(struct c63_common *cm, yuv_t *image);
+
 void dump_image(yuv_t *image, int w, int h, FILE *fp);
 
 #endif  /* C63_COMMON_H_ */

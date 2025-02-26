@@ -80,10 +80,7 @@ static yuv_t* read_yuv(FILE *file, struct c63_common *cm)
 
 static void c63_encode_image(struct c63_common *cm, yuv_t *image)
 {
-  /* Advance to next frame */
-  destroy_frame(cm->refframe);
-  cm->refframe = cm->curframe;
-  cm->curframe = create_frame(cm, image);
+  cm->curframe = prepare_next_frame(cm, image);
 
   /* Check if keyframe */
   if (cm->framenum == 0 || cm->frames_since_keyframe == cm->keyframe_interval)

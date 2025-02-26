@@ -52,25 +52,43 @@ __device__ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
   int right  = MIN(mb_x * MACROBLOCK_SIZE + range, padw - MACROBLOCK_SIZE);
   int bottom = MIN(mb_y * MACROBLOCK_SIZE + range, padh - MACROBLOCK_SIZE);
 
-  int x, y;
   int mx = mb_x * MACROBLOCK_SIZE;
   int my = mb_y * MACROBLOCK_SIZE;
-  int best_sad = INT_MAX;
-  int best_mv_x = 0, best_mv_y = 0;
 
-  for (y = top + threadIdx.y; y < bottom; y+=blockDim.y)
-  {
-    for (x = left + threadIdx.x; x < right; x+=blockDim.x)
-    {
-      int sad = sad_block_8x8(orig + my*padw + mx, ref + y*padw + x, padw);
-      if (sad < best_sad)
-      {
-        best_mv_y = x - mx;
-        best_mv_y = y - my;
-        best_sad = sad;
+  __shared__ int best_sad;
+  __shared__ int best_mv_x;
+  __shared__ int best_mv_y;
+
+  if (threadIdx.x == 0 && threadIdx.y == 0) {
+    best_sad = INT_MAX;
+    best_mv_x = 0;
+    best_mv_y = 0;
+  }
+  __syncthreads();
+
+  int local_best_sad = INT_MAX;
+  int local_best_x = 0, local_best_y = 0;
+
+  for (int y = top + threadIdx.y; y < bottom; y += blockDim.y) {
+    for (int x = left + threadIdx.x; x < right; x += blockDim.x) {
+      int sad = sad_block_8x8(orig + my * padw + mx, ref + y * padw + x, padw);
+      if (sad < local_best_sad) {
+        local_best_sad = sad;
+        local_best_x = x - mx;
+        local_best_y = y - my;
       }
     }
   }
+
+  __syncthreads();
+
+  // Atomic update only for SAD (not motion vectors)
+  if (atomicMin(&best_sad, local_best_sad) > local_best_sad) {
+    best_mv_x = local_best_x;
+    best_mv_y = local_best_y;
+  }
+
+  __syncthreads();
 
   if (threadIdx.x == 0 && threadIdx.y == 0) {
     mb->mv_x = best_mv_x;

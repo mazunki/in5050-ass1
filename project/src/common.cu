@@ -9,6 +9,57 @@
 
 #include "common.h"
 
+struct c63_pipeline* c63_pipeline_init(size_t frame_size, size_t chroma_size, size_t num_blocks_luma, size_t num_blocks_chroma)
+{
+  struct c63_pipeline *pipe = (c63_pipeline*) calloc(1, sizeof(struct c63_pipeline));
+  if (pipe == NULL) { return NULL; }
+
+  CUDA_ASSERT(cudaMalloc((void**)&pipe->d_orig_Y, frame_size));
+  CUDA_ASSERT(cudaMalloc((void**)&pipe->d_orig_U, chroma_size));
+  CUDA_ASSERT(cudaMalloc((void**)&pipe->d_orig_V, chroma_size));
+
+  CUDA_ASSERT(cudaMalloc((void**)&pipe->d_recons_Y, frame_size));
+  CUDA_ASSERT(cudaMalloc((void**)&pipe->d_recons_U, chroma_size));
+  CUDA_ASSERT(cudaMalloc((void**)&pipe->d_recons_V, chroma_size));
+
+  CUDA_ASSERT(cudaMalloc((void**)&pipe->d_refframe_Y, frame_size));
+  CUDA_ASSERT(cudaMalloc((void**)&pipe->d_refframe_U, chroma_size));
+  CUDA_ASSERT(cudaMalloc((void**)&pipe->d_refframe_V, chroma_size));
+
+  CUDA_ASSERT(cudaMalloc((void**)&pipe->d_predicted_Y, frame_size));
+  CUDA_ASSERT(cudaMalloc((void**)&pipe->d_predicted_U, chroma_size));
+  CUDA_ASSERT(cudaMalloc((void**)&pipe->d_predicted_V, chroma_size));
+
+  CUDA_ASSERT(cudaMalloc((void**)&pipe->d_mbs[Y_COMPONENT], num_blocks_luma * sizeof(struct macroblock)));
+  CUDA_ASSERT(cudaMalloc((void**)&pipe->d_mbs[U_COMPONENT], num_blocks_chroma * sizeof(struct macroblock)));
+  CUDA_ASSERT(cudaMalloc((void**)&pipe->d_mbs[V_COMPONENT], num_blocks_chroma * sizeof(struct macroblock)));
+
+  return pipe;
+}
+
+void c63_pipeline_free(struct c63_pipeline *pipe)
+{
+  CUDA_ASSERT(cudaFree(pipe->d_orig_Y));
+  CUDA_ASSERT(cudaFree(pipe->d_orig_U));
+  CUDA_ASSERT(cudaFree(pipe->d_orig_V));
+
+  CUDA_ASSERT(cudaFree(pipe->d_recons_Y));
+  CUDA_ASSERT(cudaFree(pipe->d_recons_U));
+  CUDA_ASSERT(cudaFree(pipe->d_recons_V));
+
+  CUDA_ASSERT(cudaFree(pipe->d_refframe_Y));
+  CUDA_ASSERT(cudaFree(pipe->d_refframe_U));
+  CUDA_ASSERT(cudaFree(pipe->d_refframe_V));
+
+  CUDA_ASSERT(cudaFree(pipe->d_predicted_Y));
+  CUDA_ASSERT(cudaFree(pipe->d_predicted_U));
+  CUDA_ASSERT(cudaFree(pipe->d_predicted_V));
+
+  CUDA_ASSERT(cudaFree(pipe->d_mbs[Y_COMPONENT]));
+  CUDA_ASSERT(cudaFree(pipe->d_mbs[U_COMPONENT]));
+  CUDA_ASSERT(cudaFree(pipe->d_mbs[V_COMPONENT]));
+}
+
 struct frame* create_frame(struct c63_common *cm, yuv_t *image)
 {
   frame *f = (frame*)malloc(sizeof(struct frame));

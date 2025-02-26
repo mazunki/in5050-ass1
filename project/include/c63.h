@@ -86,6 +86,29 @@ struct frame
   int keyframe;
 };
 
+struct c63_input {
+  yuv_t *h_orig;      // new image
+  yuv_t *h_refframe;  // prev's frame's h_recons
+};
+
+struct c63_output {
+  yuv_t *h_predicted;  // after motion estimation
+  dct_t *h_residuals;  // after motion compensation
+  yuv_t *h_recons;     // after dct + idct
+};
+
+struct c63_pipeline {
+  struct c63_input *input;
+  struct c63_output *output;
+
+  uint8_t *d_orig_Y, *d_orig_U, *d_orig_V;
+  uint8_t *d_recons_Y, *d_recons_U, *d_recons_V;
+  uint8_t *d_refframe_Y, *d_refframe_U, *d_refframe_V;
+  uint8_t *d_predicted_Y, *d_predicted_U, *d_predicted_V;
+
+  macroblock *d_mbs[COLOR_COMPONENTS];
+};
+
 struct c63_common
 {
   int width, height;
@@ -113,6 +136,7 @@ struct c63_common
   int frames_since_keyframe;
 
   struct entropy_ctx e_ctx;
+  struct c63_pipeline *pipe;
 };
 
 #endif  /* C63_C63_H_ */

@@ -164,11 +164,14 @@ struct c63_common* init_c63_enc(int width, int height)
   cm->num_mbs_luma = cm->mb_rows_luma * cm->mb_cols_luma;
   cm->num_mbs_chroma = cm->mb_rows_chroma * cm->mb_cols_chroma;
 
+  cm->pipe = c63_pipeline_init(cm->luma_size, cm->chroma_size, cm->num_mbs_luma, cm->num_mbs_chroma);
+
   return cm;
 }
 
 void free_c63_enc(struct c63_common* cm)
 {
+  c63_pipeline_free(cm->pipe);
   destroy_frame(cm->curframe);
   free(cm);
 }

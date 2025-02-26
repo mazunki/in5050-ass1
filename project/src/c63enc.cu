@@ -151,8 +151,8 @@ struct c63_common* init_c63_enc(int width, int height)
   cm->padw[V_COMPONENT] = cm->vpw = (uint32_t)(ceil(width*VX/(YX*8.0f))*8);
   cm->padh[V_COMPONENT] = cm->vph = (uint32_t)(ceil(height*VY/(YY*8.0f))*8);
 
-  cm->mb_cols = cm->ypw / 8;
-  cm->mb_rows = cm->yph / 8;
+  cm->mb_cols = cm->ypw / MACROBLOCK_SIZE;
+  cm->mb_rows = cm->yph / MACROBLOCK_SIZE;
 
   /* Quality parameters -- Home exam deliveries should have original values,
    i.e., quantization factor should be 25, search range should be 16, and the

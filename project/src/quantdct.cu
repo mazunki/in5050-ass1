@@ -18,17 +18,17 @@
 static void dct_2d( const float* in, float* out )
 {
     //Loop through all elements of the block
-    for(int v = 0; v < 8; v++)
+    for(int v = 0; v < MACROBLOCK_SIZE; v++)
     {
-        for(int u = 0; u < 8; u++)
+        for(int u = 0; u < MACROBLOCK_SIZE; u++)
         {
             /* Compute the DCT */
             float dct = 0;
-            for(int y = 0; y < 8; y++)
+            for(int y = 0; y < MACROBLOCK_SIZE; y++)
             {
-                for(int x = 0; x < 8; x++)
+                for(int x = 0; x < MACROBLOCK_SIZE; x++)
                 {
-                    dct += in[y*8+x] * dctlookup[x][u] * dctlookup[y][v];
+                    dct += in[y*MACROBLOCK_SIZE+x] * dctlookup[x][u] * dctlookup[y][v];
                 }
             }
 
@@ -40,17 +40,17 @@ static void dct_2d( const float* in, float* out )
 static void idct_2d( const float* in, float* out )
 {
     //Loop through all elements of the block
-    for(int v = 0; v < 8; v++)
+    for(int v = 0; v < MACROBLOCK_SIZE; v++)
     {
-        for(int u = 0; u < 8; u++)
+        for(int u = 0; u < MACROBLOCK_SIZE; u++)
         {
             /* Compute the iDCT */
             float dct = 0;
-            for(int y = 0; y < 8; y++)
+            for(int y = 0; y < MACROBLOCK_SIZE; y++)
             {
-                for(int x = 0; x < 8; x++)
+                for(int x = 0; x < MACROBLOCK_SIZE; x++)
                 {
-                    dct += in[y*8+x] * dctlookup[u][x] * dctlookup[v][y];
+                    dct += in[y*MACROBLOCK_SIZE+x] * dctlookup[u][x] * dctlookup[v][y];
                 }
             }
 
@@ -63,15 +63,15 @@ static void scale_block(float *in_data, float *out_data)
 {
   int u, v;
 
-  for (v = 0; v < 8; ++v)
+  for (v = 0; v < MACROBLOCK_SIZE; ++v)
   {
-    for (u = 0; u < 8; ++u)
+    for (u = 0; u < MACROBLOCK_SIZE; ++u)
     {
       float a1 = !u ? ISQRT2 : 1.0f;
       float a2 = !v ? ISQRT2 : 1.0f;
 
       /* Scale according to normalizing function */
-      out_data[v*8+u] = in_data[v*8+u] * a1 * a2;
+      out_data[v*MACROBLOCK_SIZE+u] = in_data[v*MACROBLOCK_SIZE+u] * a1 * a2;
     }
   }
 }
@@ -112,31 +112,31 @@ static void dequantize_block(float *in_data, float *out_data,
 static void dct_quant_block_8x8(int16_t *in_data, int16_t *out_data,
     uint8_t *quant_tbl)
 {
-  float mb[8*8] __attribute((aligned(16)));
-  float mb2[8*8] __attribute((aligned(16)));
+  float mb[MACROBLOCK_SIZE*MACROBLOCK_SIZE] __attribute((aligned(16)));
+  float mb2[MACROBLOCK_SIZE*MACROBLOCK_SIZE] __attribute((aligned(16)));
 
-  for( int i = 0; i < 64; i++ ) { mb[i] = in_data[i]; }
+  for( int i = 0; i < MACROBLOCK_SIZE*MACROBLOCK_SIZE; i++ ) { mb[i] = in_data[i]; }
 
   dct_2d(mb, mb2);
   scale_block(mb2, mb);
   quantize_block(mb, mb2, quant_tbl);
 
-  for( int i = 0; i < 64; i++ ) { out_data[i] = mb2[i]; }
+  for( int i = 0; i < MACROBLOCK_SIZE*MACROBLOCK_SIZE; i++ ) { out_data[i] = mb2[i]; }
 }
 
 static void dequant_idct_block_8x8(int16_t *in_data, int16_t *out_data,
     uint8_t *quant_tbl)
 {
-  float mb[8*8] __attribute((aligned(16)));
-  float mb2[8*8] __attribute((aligned(16)));
+  float mb[MACROBLOCK_SIZE*MACROBLOCK_SIZE] __attribute((aligned(16)));
+  float mb2[MACROBLOCK_SIZE*MACROBLOCK_SIZE] __attribute((aligned(16)));
 
-  for( int i = 0; i < 64; i++ ) { mb[i] = in_data[i]; }
+  for( int i = 0; i < MACROBLOCK_SIZE*MACROBLOCK_SIZE; i++ ) { mb[i] = in_data[i]; }
 
   dequantize_block(mb, mb2, quant_tbl);
   scale_block(mb2, mb);
   idct_2d(mb, mb2);
 
-  for( int i = 0; i < 64; i++ ) { out_data[i] = mb2[i]; }
+  for( int i = 0; i < MACROBLOCK_SIZE * MACROBLOCK_SIZE; i++ ) { out_data[i] = mb2[i]; }
 }
 
 static void dequantize_idct_row(int16_t *in_data, uint8_t *prediction, int w, int h,
@@ -144,22 +144,22 @@ static void dequantize_idct_row(int16_t *in_data, uint8_t *prediction, int w, in
 {
   int x;
 
-  int16_t block[8*8];
+  int16_t block[MACROBLOCK_SIZE*MACROBLOCK_SIZE];
 
   /* Perform the dequantization and iDCT */
-  for(x = 0; x < w; x += 8)
+  for(x = 0; x < w; x += MACROBLOCK_SIZE)
   {
     int i, j;
 
-    dequant_idct_block_8x8(in_data+(x*8), block, quantization);
+    dequant_idct_block_8x8(in_data+(x*MACROBLOCK_SIZE), block, quantization);
 
-    for (i = 0; i < 8; ++i)
+    for (i = 0; i < MACROBLOCK_SIZE; ++i)
     {
-      for (j = 0; j < 8; ++j)
+      for (j = 0; j < MACROBLOCK_SIZE; ++j)
       {
         /* Add prediction block. Note: DCT is not precise -
            Clamp to legal values */
-        int16_t tmp = block[i*8+j] + (int16_t)prediction[i*w+j+x];
+        int16_t tmp = block[i*MACROBLOCK_SIZE+j] + (int16_t)prediction[i*w+j+x];
 
         if (tmp < 0) { tmp = 0; }
         else if (tmp > 255) { tmp = 255; }
@@ -175,25 +175,25 @@ static void dct_quantize_row(uint8_t *in_data, uint8_t *prediction, int w, int h
 {
   int x;
 
-  int16_t block[8*8];
+  int16_t block[MACROBLOCK_SIZE*MACROBLOCK_SIZE];
 
   /* Perform the DCT and quantization */
-  for(x = 0; x < w; x += 8)
+  for(x = 0; x < w; x += MACROBLOCK_SIZE)
   {
     int i, j;
 
-    for (i = 0; i < 8; ++i)
+    for (i = 0; i < MACROBLOCK_SIZE; ++i)
     {
-      for (j = 0; j < 8; ++j)
+      for (j = 0; j < MACROBLOCK_SIZE; ++j)
       {
-        block[i*8+j] = ((int16_t)in_data[i*w+j+x] - prediction[i*w+j+x]);
+        block[i*MACROBLOCK_SIZE+j] = ((int16_t)in_data[i*w+j+x] - prediction[i*w+j+x]);
       }
     }
 
     /* Store MBs linear in memory, i.e. the 64 coefficients are stored
        continous. This allows us to ignore stride in DCT/iDCT and other
        functions. */
-    dct_quant_block_8x8(block, out_data+(x*8), quantization);
+    dct_quant_block_8x8(block, out_data+(x*MACROBLOCK_SIZE), quantization);
   }
 }
 
@@ -202,7 +202,7 @@ void dequantize_idct(int16_t *in_data, uint8_t *prediction, uint32_t width,
 {
   int y;
 
-  for (y = 0; y < height; y += 8)
+  for (y = 0; y < height; y += MACROBLOCK_SIZE)
   {
     dequantize_idct_row(in_data+y*width, prediction+y*width, width, height, y,
         out_data+y*width, quantization);
@@ -214,7 +214,7 @@ void dct_quantize(uint8_t *in_data, uint8_t *prediction, uint32_t width,
 {
   int y;
 
-  for (y = 0; y < height; y += 8)
+  for (y = 0; y < height; y += MACROBLOCK_SIZE)
   {
     dct_quantize_row(in_data+y*width, prediction+y*width, width, height,
         out_data+y*width, quantization);

@@ -11,6 +11,7 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include "common.h"
 #include "me.h"
 #include "tables.h"
 
@@ -20,9 +21,9 @@ static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *res
 
   *result = 0;
 
-  for (v = 0; v < 8; ++v)
+  for (v = 0; v < MACROBLOCK_SIZE; ++v)
   {
-    for (u = 0; u < 8; ++u)
+    for (u = 0; u < MACROBLOCK_SIZE; ++u)
     {
       *result += abs(block2[v*stride+u] - block1[v*stride+u]);
     }
@@ -41,10 +42,10 @@ static void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
   /* Quarter resolution for chroma channels. */
   if (color_component > 0) { range /= 2; }
 
-  int left = mb_x * 8 - range;
-  int top = mb_y * 8 - range;
-  int right = mb_x * 8 + range;
-  int bottom = mb_y * 8 + range;
+  int left = mb_x * MACROBLOCK_SIZE - range;
+  int top = mb_y * MACROBLOCK_SIZE - range;
+  int right = mb_x * MACROBLOCK_SIZE + range;
+  int bottom = mb_y * MACROBLOCK_SIZE + range;
 
   int w = cm->padw[color_component];
   int h = cm->padh[color_component];
@@ -53,13 +54,13 @@ static void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
      frame bounds. */
   if (left < 0) { left = 0; }
   if (top < 0) { top = 0; }
-  if (right > (w - 8)) { right = w - 8; }
-  if (bottom > (h - 8)) { bottom = h - 8; }
+  if (right > (w - MACROBLOCK_SIZE)) { right = w - MACROBLOCK_SIZE; }
+  if (bottom > (h - MACROBLOCK_SIZE)) { bottom = h - MACROBLOCK_SIZE; }
 
   int x, y;
 
-  int mx = mb_x * 8;
-  int my = mb_y * 8;
+  int mx = mb_x * MACROBLOCK_SIZE;
+  int my = mb_y * MACROBLOCK_SIZE;
 
   int best_sad = INT_MAX;
 
@@ -127,10 +128,10 @@ static void mc_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
 
   if (!mb->use_mv) { return; }
 
-  int left = mb_x * 8;
-  int top = mb_y * 8;
-  int right = left + 8;
-  int bottom = top + 8;
+  int left = mb_x * MACROBLOCK_SIZE;
+  int top = mb_y * MACROBLOCK_SIZE;
+  int right = left + MACROBLOCK_SIZE;
+  int bottom = top + MACROBLOCK_SIZE;
 
   int w = cm->padw[color_component];
 

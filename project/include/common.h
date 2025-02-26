@@ -5,6 +5,8 @@
 
 #include "c63.h"
 
+#define MACROBLOCK_SIZE 8
+
 // Declarations
 struct frame* create_frame(struct c63_common *cm, yuv_t *image);
 

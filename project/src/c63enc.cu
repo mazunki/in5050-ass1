@@ -26,13 +26,15 @@ extern int optind;
 extern char *optarg;
 
 /* Read planar YUV frames with 4:2:0 chroma sub-sampling */
-static int read_yuv(FILE *file, struct c63_common *cm)
+static yuv_t *read_yuv(FILE *file, struct c63_common *cm, int fb_index)
 {
   size_t len = 0;
+  
+  yuv_t *image = cm->frame_buffer[fb_index];
 
-  uint8_t *Y = cm->pipe->input->h_orig->Y;
-  uint8_t *U = cm->pipe->input->h_orig->U;
-  uint8_t *V = cm->pipe->input->h_orig->V;
+  uint8_t *Y = image->Y;
+  uint8_t *U = image->U;
+  uint8_t *V = image->V;
 
   /* Read Y. The size of Y is the same as the size of the image. The indices
      represents the color component (0 is Y, 1 is U, and 2 is V) */
@@ -54,17 +56,25 @@ static int read_yuv(FILE *file, struct c63_common *cm)
   if (feof(file))
   {
     fprintf(stderr, "i really love potatoes and lise made me not delete this line she is holding me hostage\n");
-    return -1;
+    CUDA_CHECK(cudaFreeHost(image->Y));
+    CUDA_CHECK(cudaFreeHost(image->U));
+    CUDA_CHECK(cudaFreeHost(image->V));
+    free(image);
+    return NULL;
   }
   else if (len != cm->width*cm->height*1.5)
   {
     fprintf(stderr, "Reached end of file, but incorrect bytes read.\n");
     fprintf(stderr, "Wrong input? (height: %d width: %d)\n", cm->height, cm->width);
 
-    return -2;
+    free(image->Y);
+    free(image->U);
+    free(image->V);
+    free(image);
+    return NULL;
   }
 
-  return 0;
+  return image;
 }
 
 static void c63_encode_image(struct c63_common *cm)
@@ -72,6 +82,7 @@ static void c63_encode_image(struct c63_common *cm)
   c63_pipeline *pipe = cm->pipe;
 
   DEBUG("%s", "frame start");
+
   cm->curframe = prepare_next_frame(cm);
 
   /* Check if keyframe */
@@ -135,9 +146,18 @@ static void c63_encode_image(struct c63_common *cm)
   dequantize_idct(cm->curframe->residuals->Vdct, cm->curframe->predicted->V, cm->vpw, cm->vph, cm->curframe->recons->V, cm->quanttbl[V_COMPONENT]);
 
   // we no longer need recons, ready it already
-  CUDA_CHECK(cudaMemcpyAsync(pipe->d_recons_Y, pipe->output->h_recons->Y, cm->frame_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
-  CUDA_CHECK(cudaMemcpyAsync(pipe->d_recons_U, pipe->output->h_recons->U, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
-  CUDA_CHECK(cudaMemcpyAsync(pipe->d_recons_V, pipe->output->h_recons->V, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
+  yuv_t *next_frame = cm->frame_buffer[(cm->fb_curr_index + 1) % FRAMEBUFFER_SIZE];
+
+  if (next_frame != NULL)
+  {
+    CUDA_CHECK(cudaMemcpyAsync(pipe->d_orig_Y, next_frame->Y, cm->frame_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
+    CUDA_CHECK(cudaMemcpyAsync(pipe->d_orig_U, next_frame->U, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
+    CUDA_CHECK(cudaMemcpyAsync(pipe->d_orig_V, next_frame->V, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
+
+    CUDA_CHECK(cudaMemcpyAsync(pipe->d_recons_Y, pipe->output->h_recons->Y, cm->frame_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
+    CUDA_CHECK(cudaMemcpyAsync(pipe->d_recons_U, pipe->output->h_recons->U, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
+    CUDA_CHECK(cudaMemcpyAsync(pipe->d_recons_V, pipe->output->h_recons->V, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
+  }
 
   for (int i=0; i<10; i++) {
     DEBUG("frame %d", cm->framenum);
@@ -212,6 +232,15 @@ struct c63_common* init_c63_enc(int width, int height)
 
   cm->pipe = c63_pipeline_init(cm->frame_size, cm->chroma_size, cm->num_blocks_luma, cm->num_blocks_chroma);
 
+  for (int i = 0; i < FRAMEBUFFER_SIZE; i++) {
+    cm->frame_buffer[i] = (yuv_t *)malloc(sizeof(yuv_t));
+    CUDA_CHECK(cudaHostAlloc((void**)&cm->frame_buffer[i]->Y, cm->frame_size, cudaHostAllocDefault));
+    CUDA_CHECK(cudaHostAlloc((void**)&cm->frame_buffer[i]->U, cm->chroma_size, cudaHostAllocDefault));
+    CUDA_CHECK(cudaHostAlloc((void**)&cm->frame_buffer[i]->V, cm->chroma_size, cudaHostAllocDefault));
+  }
+
+  cm->fb_curr_index = 0;
+
   return cm;
 }
 
@@ -221,6 +250,14 @@ void free_c63_enc(struct c63_common* cm)
 
   destroy_frame_cuda(cm->curframe);
   c63_pipeline_free(cm->pipe);
+
+  for (int i = 0; i < FRAMEBUFFER_SIZE; i++) {
+    cm->frame_buffer[i] = (yuv_t *)malloc(sizeof(yuv_t));
+    CUDA_CHECK(cudaFreeHost((void**)&cm->frame_buffer[i]->Y));
+    CUDA_CHECK(cudaFreeHost((void**)&cm->frame_buffer[i]->U));
+    CUDA_CHECK(cudaFreeHost((void**)&cm->frame_buffer[i]->V));
+  }
+
 
   free(cm);
 }
@@ -298,18 +335,22 @@ int main(int argc, char **argv)
 
   /* Encode input frames */
   int numframes = 0;
+  if (read_yuv(infile, cm, cm->fb_curr_index) == NULL) {
+    exit(EXIT_FAILURE);
+  }
 
   while (1)
   {
-    int status = read_yuv(infile, cm);
-    if (status < 0) {
-      break;
+    int fb_next = (cm->fb_curr_index+1) % FRAMEBUFFER_SIZE;
+    if (read_yuv(infile, cm, fb_next) == NULL) {
+      exit(EXIT_FAILURE);
     }
 
     printf("Encoding frame %d, ", numframes);
     c63_encode_image(cm);
 
     printf("Done!\n");
+    cm->fb_curr_index = (cm->fb_curr_index + 1) % FRAMEBUFFER_SIZE;
 
     ++numframes;
 

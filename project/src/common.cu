@@ -143,11 +143,7 @@ struct frame* prepare_next_frame(struct c63_common *cm)
   frame *f = (frame*)malloc(sizeof(struct frame));
   if (f == NULL) { return NULL; }
 
-  f->orig = cm->pipe->input->h_orig;
-
-  CUDA_CHECK(cudaMemcpyAsync(pipe->d_orig_Y, f->orig->Y, cm->frame_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
-  CUDA_CHECK(cudaMemcpyAsync(pipe->d_orig_U, f->orig->U, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
-  CUDA_CHECK(cudaMemcpyAsync(pipe->d_orig_V, f->orig->V, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_transfer_input));
+  f->orig = cm->frame_buffer[cm->fb_curr_index];
 
   if (cm->frames_since_keyframe != 0)
   {

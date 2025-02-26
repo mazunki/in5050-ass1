@@ -8,6 +8,8 @@
 #define MAX_FILELENGTH 200
 #define DEFAULT_OUTPUT_FILE "a.mjpg"
 
+#define FRAMEBUFFER_SIZE 4
+
 #define PI 3.14159265358979
 #define ILOG2 1.442695040888963 // 1/log(2);
 
@@ -145,6 +147,8 @@ struct c63_common
 
   struct entropy_ctx e_ctx;
   struct c63_pipeline *pipe;
+  yuv_t *frame_buffer[FRAMEBUFFER_SIZE];
+  int fb_curr_index;
 };
 
 #endif  /* C63_C63_H_ */

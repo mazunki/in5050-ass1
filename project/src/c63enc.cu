@@ -80,13 +80,13 @@ static void c63_encode_image(struct c63_common *cm)
     cm->curframe->keyframe = 1;
     cm->frames_since_keyframe = 0;
 
-    cudaMemset(cm->pipe->output->h_predicted->Y, 0, cm->frame_size);
-    cudaMemset(cm->pipe->output->h_predicted->U, 0, cm->chroma_size);
-    cudaMemset(cm->pipe->output->h_predicted->V, 0, cm->chroma_size);
+    CUDA_CHECK(cudaMemset(pipe->output->h_predicted->Y, 0, cm->frame_size));
+    CUDA_CHECK(cudaMemset(pipe->output->h_predicted->U, 0, cm->chroma_size));
+    CUDA_CHECK(cudaMemset(pipe->output->h_predicted->V, 0, cm->chroma_size));
 
-    cudaMemset(cm->pipe->output->h_residuals->Ydct, 0, cm->frame_size * sizeof(int16_t));
-    cudaMemset(cm->pipe->output->h_residuals->Udct, 0, cm->chroma_size * sizeof(int16_t));
-    cudaMemset(cm->pipe->output->h_residuals->Vdct, 0, cm->chroma_size * sizeof(int16_t));
+    CUDA_CHECK(cudaMemset(pipe->output->h_residuals->Ydct, 0, cm->frame_size * sizeof(int16_t)));
+    CUDA_CHECK(cudaMemset(pipe->output->h_residuals->Udct, 0, cm->chroma_size * sizeof(int16_t)));
+    CUDA_CHECK(cudaMemset(pipe->output->h_residuals->Vdct, 0, cm->chroma_size * sizeof(int16_t)));
 
     DEBUG("%s", "(keyframe)");
   }
@@ -94,13 +94,7 @@ static void c63_encode_image(struct c63_common *cm)
 
   if (!cm->curframe->keyframe)
   {
-    /* Motion Estimation
-          @param[in] d_orig
-          @param[in] d_recons (from last frame)
-          @param[out] d_mbs
-    */
     CUDA_CHECK(cudaStreamSynchronize(pipe->stream_transfer_input));
-
     c63_motion_estimate(cm);
 
     CUDA_CHECK(cudaStreamSynchronize(pipe->stream_estimate));

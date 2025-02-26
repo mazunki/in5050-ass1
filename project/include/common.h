@@ -28,7 +28,7 @@
     }
 
 
-#if NDEBUG
+#ifdef NDEBUG
 #define DEBUG(fmt, ...) fprintf(stderr, "[DEBUG] %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 #else
 #define DEBUG(fmt, ...)

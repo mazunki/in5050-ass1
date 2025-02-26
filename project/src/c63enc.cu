@@ -165,8 +165,9 @@ static void c63_encode_image(struct c63_common *cm)
   ++cm->framenum;
   ++cm->frames_since_keyframe;
 
-  DEBUG("frame complete");
+  DEBUG("%s", "frame complete");
 }
+
 
 struct c63_common* init_c63_enc(int width, int height)
 {

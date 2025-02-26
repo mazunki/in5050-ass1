@@ -80,6 +80,8 @@ __device__ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y,
 }
 
 
+
+
 /**
 @param[in] d_orig
 @param[in] d_recons (from last frame)

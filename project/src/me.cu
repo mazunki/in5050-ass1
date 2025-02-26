@@ -15,6 +15,61 @@
 #include "me.h"
 #include "tables.h"
 
+
+// estimation
+static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result);
+static void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y, uint8_t *orig, uint8_t *ref, int color_component);
+
+// compensation
+static void mc_block_8x8(struct c63_common *cm, int mb_x, int mb_y, uint8_t *predicted, uint8_t *ref, int color_component);
+
+
+
+
+/**
+ * @brief Motion estimation
+ *
+ * Motion estimation calculates the motion vectors using
+ * the original image from a reference image (made by
+ * reconstructing the previous frame
+ *
+ * This is only used during encoding, since the decoder only
+ * has the original image during key-frames.
+ *
+ * @param[in] d_orig
+ * @param[in] d_recons
+ * @param[out] d_mbs
+ */
+void c63_motion_estimate(struct c63_common *cm)
+{
+  int mb_x, mb_y;
+
+  /* Luma */
+  for (mb_y = 0; mb_y < cm->mb_rows; ++mb_y)
+  {
+    for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x)
+    {
+      me_block_8x8(cm, mb_x, mb_y, cm->curframe->orig->Y, cm->refframe->recons->Y, Y_COMPONENT);
+    }
+  }
+
+  /* Chroma */
+  for (mb_y = 0; mb_y < cm->mb_rows / 2; ++mb_y)
+  {
+    for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x)
+    {
+      me_block_8x8(cm, mb_x, mb_y, cm->curframe->orig->U, cm->refframe->recons->U, U_COMPONENT);
+      me_block_8x8(cm, mb_x, mb_y, cm->curframe->orig->V, cm->refframe->recons->V, V_COMPONENT);
+    }
+  }
+}
+
+/**
+ * @brief Sums up the Sum of Absolute Difference between two blocks.
+ * 
+ * This value can then be used to pick the best match for any given
+ * macroblock during motion estimation.
+ */
 static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result)
 {
   int u, v;
@@ -30,12 +85,10 @@ static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *res
   }
 }
 
-/* Motion estimation for 8x8 block */
-static void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
-    uint8_t *orig, uint8_t *ref, int color_component)
+/* performs motion estimation for a full macroblock */
+static void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y, uint8_t *orig, uint8_t *ref, int color_component)
 {
-  struct macroblock *mb =
-    &cm->curframe->mbs[color_component][mb_y*cm->padw[color_component]/8+mb_x];
+  struct macroblock *mb = &cm->curframe->mbs[color_component][mb_y*cm->padw[color_component]/8+mb_x];
 
   int range = cm->me_search_range;
 
@@ -91,9 +144,23 @@ static void me_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
   mb->use_mv = 1;
 }
 
-void c63_motion_estimate(struct c63_common *cm)
+
+
+/**
+ * @brief Motion Compensation
+ * 
+ * Motion compensation predicts what a frame would look like
+ * using the datablocks provided to it, and the previous
+ * frame's reconstructed frame.
+ *
+ * This is used both during encoding and decoding.
+ *
+ * @param[in]  d_mbs
+ * @param[out] d_predicted
+ * @param[in]  d_ref
+ */
+void c63_motion_compensate(struct c63_common *cm)
 {
-  /* Compare this frame with previous reconstructed frame */
   int mb_x, mb_y;
 
   /* Luma */
@@ -101,8 +168,7 @@ void c63_motion_estimate(struct c63_common *cm)
   {
     for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x)
     {
-      me_block_8x8(cm, mb_x, mb_y, cm->curframe->orig->Y,
-          cm->refframe->recons->Y, Y_COMPONENT);
+      mc_block_8x8(cm, mb_x, mb_y, cm->curframe->predicted->Y, cm->refframe->recons->Y, Y_COMPONENT);
     }
   }
 
@@ -111,20 +177,16 @@ void c63_motion_estimate(struct c63_common *cm)
   {
     for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x)
     {
-      me_block_8x8(cm, mb_x, mb_y, cm->curframe->orig->U,
-          cm->refframe->recons->U, U_COMPONENT);
-      me_block_8x8(cm, mb_x, mb_y, cm->curframe->orig->V,
-          cm->refframe->recons->V, V_COMPONENT);
+      mc_block_8x8(cm, mb_x, mb_y, cm->curframe->predicted->U, cm->refframe->recons->U, U_COMPONENT);
+      mc_block_8x8(cm, mb_x, mb_y, cm->curframe->predicted->V, cm->refframe->recons->V, V_COMPONENT);
     }
   }
 }
 
-/* Motion compensation for 8x8 block */
-static void mc_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
-    uint8_t *predicted, uint8_t *ref, int color_component)
+/* writes the prediction for a full macroblock */
+static void mc_block_8x8(struct c63_common *cm, int mb_x, int mb_y, uint8_t *predicted, uint8_t *ref, int color_component)
 {
-  struct macroblock *mb =
-    &cm->curframe->mbs[color_component][mb_y*cm->padw[color_component]/8+mb_x];
+  struct macroblock *mb = &cm->curframe->mbs[color_component][mb_y*cm->padw[color_component]/8+mb_x];
 
   if (!mb->use_mv) { return; }
 
@@ -147,30 +209,4 @@ static void mc_block_8x8(struct c63_common *cm, int mb_x, int mb_y,
   }
 }
 
-void c63_motion_compensate(struct c63_common *cm)
-{
-  int mb_x, mb_y;
-
-  /* Luma */
-  for (mb_y = 0; mb_y < cm->mb_rows; ++mb_y)
-  {
-    for (mb_x = 0; mb_x < cm->mb_cols; ++mb_x)
-    {
-      mc_block_8x8(cm, mb_x, mb_y, cm->curframe->predicted->Y,
-          cm->refframe->recons->Y, Y_COMPONENT);
-    }
-  }
-
-  /* Chroma */
-  for (mb_y = 0; mb_y < cm->mb_rows / 2; ++mb_y)
-  {
-    for (mb_x = 0; mb_x < cm->mb_cols / 2; ++mb_x)
-    {
-      mc_block_8x8(cm, mb_x, mb_y, cm->curframe->predicted->U,
-          cm->refframe->recons->U, U_COMPONENT);
-      mc_block_8x8(cm, mb_x, mb_y, cm->curframe->predicted->V,
-          cm->refframe->recons->V, V_COMPONENT);
-    }
-  }
-}
 

@@ -453,7 +453,7 @@ int main(int argc, char **argv)
   cm->e_ctx.fp = fin;
 
   int framenum = 0;
-  while(!feof(fin))
+  while(fpeek(fin) != EOF)
   {
     DEBUG("Decoding frame %d", framenum++);
 

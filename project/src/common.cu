@@ -83,3 +83,11 @@ void dump_image(yuv_t *image, int w, int h, FILE *fp)
   fwrite(image->V, 1, w*h/4, fp);
 }
 
+int fpeek(FILE *stream)
+{
+  int c;
+  c = fgetc(stream);
+  ungetc(c, stream);
+  return c;
+}
+

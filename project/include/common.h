@@ -43,5 +43,7 @@ struct frame* prepare_next_frame(struct c63_common *cm, yuv_t *image);
 
 void dump_image(yuv_t *image, int w, int h, FILE *fp);
 
+int fpeek(FILE *stream);
+
 #endif  /* C63_COMMON_H_ */
 

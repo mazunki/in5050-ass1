@@ -455,7 +455,7 @@ int main(int argc, char **argv)
   int framenum = 0;
   while(!feof(fin))
   {
-    printf("Decoding frame %d\n", framenum++);
+    DEBUG("Decoding frame %d", framenum++);
 
     parse_c63_frame(cm);
     decode_c63_frame(cm, fout);

@@ -90,8 +90,6 @@ static void c63_encode_image(struct c63_common *cm, yuv_t *image)
   {
     cm->curframe->keyframe = 1;
     cm->frames_since_keyframe = 0;
-
-    fprintf(stderr, " (keyframe) ");
   }
   else { cm->curframe->keyframe = 0; }
 
@@ -239,7 +237,7 @@ int main(int argc, char **argv)
 
   input_file = argv[optind];
 
-  if (limit_numframes) { printf("Limited to %d frames.\n", limit_numframes); }
+  if (limit_numframes) { fprintf(stderr, "Limited to %d frames.\n", limit_numframes); }
 
   FILE *infile = fopen(input_file, "rb");
 
@@ -258,7 +256,7 @@ int main(int argc, char **argv)
 
     if (!image) { break; }
 
-    printf("Encoding frame %d, ", numframes);
+    printf("Encoding frame %d...", numframes);
     c63_encode_image(cm, image);
 
     free(image->Y);
@@ -266,7 +264,7 @@ int main(int argc, char **argv)
     free(image->V);
     free(image);
 
-    printf("Done!\n");
+    printf(" done!\n");
 
     ++numframes;
 
@@ -276,17 +274,6 @@ int main(int argc, char **argv)
   free_c63_enc(cm);
   fclose(outfile);
   fclose(infile);
-
-  //int i, j;
-  //for (i = 0; i < 2; ++i)
-  //{
-  //  printf("int freq[] = {");
-  //  for (j = 0; j < ARRAY_SIZE(frequencies[i]); ++j)
-  //  {
-  //    printf("%d, ", frequencies[i][j]);
-  //  }
-  //  printf("};\n");
-  //}
 
   return EXIT_SUCCESS;
 }

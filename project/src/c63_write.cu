@@ -231,18 +231,18 @@ static void write_block(struct c63_common *cm, int16_t *in_data, uint32_t width,
   static int blocknum;
   ++blocknum;
 
-  printf("Dump block %d:\n", blocknum);
+  fprintf(stderr, "Dump block %d:\n", blocknum);
 
-  for(i=0; i<8; ++i)
+  for(i=0; i<MACROBLOCK_SIZE; ++i)
   {
-    for (j=0; j<8; ++j)
+    for (j=0; j<MACROBLOCK_SIZE; ++j)
     {
-      printf(", %5d", block[i*8+j]);
+      fprintf(stderr, ", %5d", block[i*MACROBLOCK_SIZE+j]);
     }
-    printf("\n");
+    fprintf(stderr, "\n");
   }
 
-  printf("Finished block\n\n");
+  fprintf(stderr, "Finished block\n\n");
 #endif
 
   /* Calculate DC component, and write to stream */

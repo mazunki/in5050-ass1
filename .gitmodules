@@ -1,4 +1,4 @@
-[submodule "precode.git"]
+[submodule "docs/precode.git"]
 	path = docs/precode.git
 	url = https://github.com/griwodz/in5050-codec63.git
 [submodule "docs/mjpeg.git"]

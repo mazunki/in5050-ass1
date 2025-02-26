@@ -362,3 +362,4 @@ void write_frame(struct c63_common *cm)
   /* End Of Image */
   write_EOI(cm);
 }
+

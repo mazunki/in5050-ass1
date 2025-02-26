@@ -126,3 +126,4 @@ void flush_bits(struct entropy_ctx *c)
   c->bit_buffer = 0;
   c->bit_buffer_width = 0;
 }
+

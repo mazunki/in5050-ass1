@@ -221,3 +221,4 @@ void dct_quantize(uint8_t *in_data, uint8_t *prediction, uint32_t width,
   }
 }
 
+

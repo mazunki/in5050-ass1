@@ -22,3 +22,4 @@ void put_byte(FILE *fp, int byte);
 void put_bytes(FILE *fp, const void* data, unsigned int len);
 
 #endif  /* C63_IO_H_ */
+

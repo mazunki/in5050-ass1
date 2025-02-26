@@ -21,3 +21,4 @@ void destroy_frame(struct frame *f);
 void dump_image(yuv_t *image, int w, int h, FILE *fp);
 
 #endif  /* C63_COMMON_H_ */
+

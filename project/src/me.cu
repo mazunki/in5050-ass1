@@ -173,3 +173,4 @@ void c63_motion_compensate(struct c63_common *cm)
     }
   }
 }
+

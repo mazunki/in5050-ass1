@@ -7,3 +7,4 @@
 void write_frame(struct c63_common *cm);
 
 #endif  /* C63_WRITE_H_ */
+

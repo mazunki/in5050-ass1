@@ -412,19 +412,35 @@ int parse_c63_frame(struct c63_common *cm)
 
 void decode_c63_frame(struct c63_common *cm, FILE *fout)
 {
-  /* Motion Compensation */
-  if (!cm->curframe->keyframe) { c63_motion_compensate(cm); }
+  if (!cm->curframe->keyframe) {
+    /** Motion Compensation (cuda function)
+     *   @param[in] d_mbs
+     *   @param[out] d_predicted
+     *   @param[in] d_ref
+     */
+    c63_motion_compensate(cm);
+  }
 
-  /* Decode residuals */
+ /** dequantize (slow CPU-only function)
+  *  @param[in]  residuals
+  *  @param[in]  predicted
+  *  @param[out] recons
+  */
   dequantize_idct(cm->curframe->residuals->Ydct, cm->curframe->predicted->Y, cm->ypw, cm->yph, cm->curframe->recons->Y, cm->quanttbl[0]);
   dequantize_idct(cm->curframe->residuals->Udct, cm->curframe->predicted->U, cm->upw, cm->uph, cm->curframe->recons->U, cm->quanttbl[1]);
   dequantize_idct(cm->curframe->residuals->Vdct, cm->curframe->predicted->V, cm->vpw, cm->vph, cm->curframe->recons->V, cm->quanttbl[2]);
 
 #ifndef C63_PRED
-  /* Write result */
+  /** Write result
+   * @param[in]  recons
+   * @param[out] fout
+  */
   dump_image(cm->curframe->recons, cm->width, cm->height, fout);
 #else
-  /* To dump the predicted frames, use this instead */
+  /** Write predicted results instead
+   * @param[in]  recons
+   * @param[out] fout
+  */
   dump_image(cm->curframe->predicted, cm->width, cm->height, fout);
 #endif
 
@@ -461,6 +477,10 @@ int main(int argc, char **argv)
     printf("Decoding frame %d\n", framenum++);
 
     parse_c63_frame(cm);
+    /**
+     * @param[in]  fin
+     * @param[out] curframe->mbs
+     */
     decode_c63_frame(cm, fout);
   }
 

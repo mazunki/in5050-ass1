@@ -7,6 +7,27 @@
 
 #define MACROBLOCK_SIZE 8
 
+#define CUDA_ASSERT(call)                                                     \
+    {                                                                         \
+        cudaError_t err = call;                                               \
+        if (err != cudaSuccess) {                                             \
+            fprintf(stderr, "CUDA Error: %s (file %s, line %d)\n",            \
+                    cudaGetErrorString(err), __FILE__, __LINE__);             \
+            exit(err);                                                        \
+        }                                                                     \
+    }
+
+#define CUDA_CHECK()                                                          \
+    {                                                                         \
+        cudaError_t err = cudaGetLastError();                                 \
+        if (err != cudaSuccess) {                                             \
+            fprintf(stderr, "CUDA Error: %s (file %s, line %d)\n",            \
+                    cudaGetErrorString(err), __FILE__, __LINE__);             \
+            exit(err);                                                        \
+        }                                                                     \
+    }
+
+
 #if NDEBUG
 #define DEBUG(fmt, ...) fprintf(stderr, "[DEBUG] %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 #else

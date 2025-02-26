@@ -455,14 +455,16 @@ int main(int argc, char **argv)
   int framenum = 0;
   while(fpeek(fin) != EOF)
   {
-    DEBUG("Decoding frame %d", framenum++);
+    DEBUG("Decoding frame %d", framenum);
 
     parse_c63_frame(cm);
     decode_c63_frame(cm, fout);
+    framenum++;
   }
 
   fclose(fin);
   fclose(fout);
+  printf("Decoding successful! Found %d frames\n", framenum);
 
   return 0;
 }

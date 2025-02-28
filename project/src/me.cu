@@ -27,9 +27,6 @@ __device__ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, u
 __global__ void c63_motion_compensate_kernel(macroblock *d_mbs, int mb_cols, int mb_rows, uint8_t *d_predicted, uint8_t *d_ref, int padw);
 
 
-__device__ static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *predicted, uint8_t *ref, int padw);
-
-
 
 /**
  * @brief Motion estimation
@@ -205,36 +202,26 @@ __host__ void c63_motion_compensate(struct c63_common *cm)
   CUDA_CHECK();
 }
 
-__global__ void c63_motion_compensate_kernel(struct macroblock *mbs, int mb_cols, int mb_rows, uint8_t *predicted, uint8_t *ref, int padw)
+__global__ void c63_motion_compensate_kernel(struct macroblock *d_mbs, int mb_cols, int mb_rows, uint8_t *d_predicted, uint8_t *d_ref, int padw)
 {
+  __shared__ uint8_t s_predictions[MACROBLOCK_SIZE][MACROBLOCK_SIZE];
+
   int mb_x = blockIdx.x;
   int mb_y = blockIdx.y;
 
   if (mb_x >= mb_cols || mb_y >= mb_rows) return;
 
-  struct macroblock *mb = &mbs[mb_y * mb_cols + mb_x];
-  mc_block_8x8(mb, mb_x, mb_y, predicted, ref, padw);
-}
+  macroblock *mb = &d_mbs[mb_y * mb_cols + mb_x];
+  if (!mb->use_mv) return;
 
-/* writes the prediction for a full macroblock */
-__device__ static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *predicted, uint8_t *ref, int padw)
-{
-  if (!mb->use_mv) { return; }
-
+  int tx = threadIdx.x;
+  int ty = threadIdx.y;
   int left = mb_x * MACROBLOCK_SIZE;
   int top = mb_y * MACROBLOCK_SIZE;
-  int right = left + MACROBLOCK_SIZE;
-  int bottom = top + MACROBLOCK_SIZE;
 
-  /* Copy block from ref mandated by MV */
-  int x, y;
+  s_predictions[ty][tx] = d_ref[(top + ty + mb->mv_y) * padw + (left + tx + mb->mv_x)];
+  __syncthreads();
 
-  for (y = top; y < bottom; ++y)
-  {
-    for (x = left; x < right; ++x)
-    {
-      predicted[y*padw+x] = ref[(y + mb->mv_y) * padw + (x + mb->mv_x)];
-    }
-  }
+  d_predicted[(top + ty) * padw + (left + tx)] = s_predictions[ty][tx];
 }
 

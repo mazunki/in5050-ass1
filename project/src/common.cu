@@ -150,16 +150,14 @@ void destroy_frame(struct frame *f)
 {
   /* First frame doesn't have a reconstructed frame to destroy */
   if (f == NULL) { return; }
-
+  free(f->orig);
   free(f);
 }
 
 struct frame* prepare_next_frame(struct c63_common *cm)
 {
   // move old out of the way
-  destroy_frame(cm->refframe);
   cm->refframe = cm->curframe;
-
 
   // new frame
   frame *f = (frame*)malloc(sizeof(struct frame));
@@ -183,9 +181,9 @@ struct frame* prepare_next_frame(struct c63_common *cm)
   f->predicted = cm->pipe->h_predicted;
   f->residuals = cm->pipe->h_residuals;
 
-  f->mbs[Y_COMPONENT] = (macroblock*)calloc(cm->num_mbs_luma, sizeof(struct macroblock));
-  f->mbs[U_COMPONENT] = (macroblock*)calloc(cm->num_mbs_chroma, sizeof(struct macroblock));
-  f->mbs[V_COMPONENT] = (macroblock*)calloc(cm->num_mbs_chroma, sizeof(struct macroblock));
+  f->mbs[Y_COMPONENT] = cm->pipe->h_mbs[Y_COMPONENT];
+  f->mbs[U_COMPONENT] = cm->pipe->h_mbs[U_COMPONENT];
+  f->mbs[V_COMPONENT] = cm->pipe->h_mbs[V_COMPONENT];
 
   return f;
 }

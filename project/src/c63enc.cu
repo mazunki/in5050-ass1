@@ -215,11 +215,6 @@ struct c63_common* init_c63_enc(int width, int height)
 
 void free_c63_enc(struct c63_common* cm)
 {
-  CUDA_ASSERT(cudaFreeHost(cm->curframe->orig->Y));
-  CUDA_ASSERT(cudaFreeHost(cm->curframe->orig->U));
-  CUDA_ASSERT(cudaFreeHost(cm->curframe->orig->V));
-  free(cm->curframe->orig);
-
   c63_pipeline_free(cm->pipe);
   destroy_frame(cm->curframe);
   free(cm);
@@ -304,12 +299,16 @@ int main(int argc, char **argv)
   do {
     int fb_next = (cm->fb_curr_index+1) % FRAMEBUFFER_SIZE;
 
-    if (fpeek(infile) != EOF) {
+    if (fpeek(infile) == EOF) {
+      CUDA_ASSERT(cudaFreeHost(cm->frame_buffer[fb_next]->Y));
+      CUDA_ASSERT(cudaFreeHost(cm->frame_buffer[fb_next]->U));
+      CUDA_ASSERT(cudaFreeHost(cm->frame_buffer[fb_next]->V));
+      cm->frame_buffer[fb_next] = NULL;
+
+    } else {
       if (read_yuv(infile, cm, fb_next) == NULL) {
         exit(EXIT_FAILURE);
       }
-    } else {
-      cm->frame_buffer[fb_next] = NULL;
     }
 
     printf("Encoding frame %d...", numframes+1);

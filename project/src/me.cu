@@ -19,7 +19,7 @@
 // estimation
 __global__ void c63_motion_estimate_kernel(uint8_t *d_orig, uint8_t *d_recons, macroblock *d_mbs, int width, int height, int range);
 
-__device__ static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result);
+__device__ static int sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride);
 __device__ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *orig, uint8_t *ref, int padw, int padh, int range);
 
 
@@ -72,20 +72,34 @@ __host__ void c63_motion_estimate(struct c63_common *cm)
  * This value can then be used to pick the best match for any given
  * macroblock during motion estimation.
  */
-__device__ static void sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride, int *result)
+__device__ static int sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride)
 {
-  int u, v;
+  __shared__ int s_sad_values[MACROBLOCK_SIZE][MACROBLOCK_SIZE];
 
-  *result = 0;
+  int row = threadIdx.y;
+  int col = threadIdx.x;
 
-  for (v = 0; v < MACROBLOCK_SIZE; ++v)
+  if (row < MACROBLOCK_SIZE && col < MACROBLOCK_SIZE)
   {
-    for (u = 0; u < MACROBLOCK_SIZE; ++u)
-    {
-      *result += abs(block2[v*stride+u] - block1[v*stride+u]);
-    }
+    s_sad_values[row][col] = abs(block1[row * stride + col] - block2[row * stride + col]);
   }
+  else
+{
+    s_sad_values[row][col] = 0;
+  }
+
+  __syncthreads();
+
+  for (int s = MACROBLOCK_SIZE / 2; s > 0; s /= 2) {
+    if (row < s) {
+      s_sad_values[row][col] += s_sad_values[row + s][col];
+    }
+    __syncthreads();
+  }
+
+  return (row == 0 && col == 0) ? s_sad_values[0][col] : 0;
 }
+
 
 /* performs motion estimation for a full macroblock */
 __device__ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *orig, uint8_t *ref, int padw, int padh, int range)
@@ -95,39 +109,50 @@ __device__ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, u
   int right  = MIN(mb_x * MACROBLOCK_SIZE + range, padw - MACROBLOCK_SIZE);
   int bottom = MIN(mb_y * MACROBLOCK_SIZE + range, padh - MACROBLOCK_SIZE);
 
-  int x, y;
-
   int mx = mb_x * MACROBLOCK_SIZE;
   int my = mb_y * MACROBLOCK_SIZE;
 
-  int best_sad = INT_MAX;
+  __shared__ int s_best_sad;
+  __shared__ int s_best_mv_x;
+  __shared__ int s_best_mv_y;
 
-  for (y = top; y < bottom; ++y)
-  {
-    for (x = left; x < right; ++x)
-    {
-      int sad;
-      sad_block_8x8(orig + my*padw+mx, ref + y*padw+x, padw, &sad);
+  if (threadIdx.x == 0 && threadIdx.y == 0) {
+    s_best_sad = INT_MAX;
+    s_best_mv_x = 0;
+    s_best_mv_y = 0;
+  }
+  __syncthreads();
 
-      /* DEBUG("(%4d,%4d) - %d", x, y, sad); */
+  int local_best_sad = INT_MAX;
+  int local_best_x = 0, local_best_y = 0;
 
-      if (sad < best_sad)
-      {
-        mb->mv_x = x - mx;
-        mb->mv_y = y - my;
-        best_sad = sad;
+  for (int y = top + threadIdx.y; y < bottom; y += blockDim.y) {
+    for (int x = left + threadIdx.x; x < right; x += blockDim.x) {
+      int sad = sad_block_8x8(orig + my * padw + mx, ref + y * padw + x, padw);
+      if (sad < local_best_sad) {
+        local_best_sad = sad;
+        local_best_x = x - mx;
+        local_best_y = y - my;
       }
     }
   }
 
-  /* Here, there should be a threshold on SAD that checks if the motion vector
-     is cheaper than intraprediction. We always assume MV to be beneficial */
+  __syncthreads();
 
-  /* DEBUG("Using motion vector (%d, %d) with SAD %d", mb->mv_x, mb->mv_y,
-     best_sad); */
+  if (atomicMin(&s_best_sad, local_best_sad) > local_best_sad) {
+    s_best_mv_x = local_best_x;
+    s_best_mv_y = local_best_y;
+  }
 
-  mb->use_mv = 1;
+  __syncthreads();
+
+  if (threadIdx.x == 0 && threadIdx.y == 0) {
+    mb->mv_x = s_best_mv_x;
+    mb->mv_y = s_best_mv_y;
+    mb->use_mv = 1;
+  }
 }
+
 
 __global__ void c63_motion_estimate_kernel(uint8_t *d_orig, uint8_t *d_recons, macroblock *d_mbs, int width, int height, int range)
 {
@@ -167,6 +192,7 @@ __host__ void c63_motion_compensate(struct c63_common *cm)
   c63_pipeline *pipe = cm->pipe;
 
   CUDA_ASSERT(cudaStreamSynchronize(pipe->stream_estimate_Y));
+
   c63_motion_compensate_kernel<<<grid_size_luma,   block_size, 0, pipe->stream_compensate_Y>>>(pipe->d_mbs[Y_COMPONENT], cm->mb_cols_luma,   cm->mb_rows_luma,   pipe->d_predicted_Y, pipe->d_refframe_Y, cm->padw[Y_COMPONENT]);
   CUDA_CHECK();
 

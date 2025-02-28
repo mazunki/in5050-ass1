@@ -4,7 +4,7 @@ We are presenting two folders since we didn't have a chance to test the last sol
 
 We know the `legacy/` folder works, but it's sort of messy, and is not really our main submission.
 
-Our submission is the `neo/` folder, which can also be found on [github:mazunki/in5050-ass1](https://github.com/mazunki/in5050-ass1). Inside, there's a README explaining how to run the code automatically on the machine. We mainly test our code with `./run.sh`, which does all the deployment for us.
+Our submission is the `neo/` folder, which can also be found on [github:mazunki/in5050-ass1](https://github.com/mazunki/in5050-ass1). Inside the `project/` subdirectory, there's a README explaining how to run the code automatically on the machine. We mainly test our code with `./run.sh`, which does all the deployment for us.
 
 If we had a bit more time, we would try implementing these ideas, which would probably improve performance minimally.
 - Replace shared memory with warp reduction (using `__shfl_*` functions)

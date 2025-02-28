@@ -324,7 +324,7 @@ int main(int argc, char **argv)
   } while (cm->frame_buffer[cm->fb_curr_index] != NULL);
 
 
-  printf("Completed encoding! Encoded %d frames", numframes);
+  printf("Completed encoding! Encoded %d frames\n", numframes);
 
 
 

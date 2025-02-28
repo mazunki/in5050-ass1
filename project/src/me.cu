@@ -103,7 +103,7 @@ __device__ static int sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride
     s_sad_values[row][col] = abs(block1[row * stride + col] - block2[row * stride + col]);
   }
   else
-{
+  {
     s_sad_values[row][col] = 0;
   }
 

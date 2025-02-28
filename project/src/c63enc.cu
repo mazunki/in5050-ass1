@@ -153,13 +153,13 @@ static void c63_encode_image(struct c63_common *cm)
   // we no longer need recons, ready it already
   yuv_t *next_frame = cm->frame_buffer[(cm->fb_curr_index+1) % FRAMEBUFFER_SIZE];
   if (next_frame != NULL) {
-    CUDA_ASSERT(cudaMemcpy(pipe->d_orig_Y, next_frame->Y, cm->luma_size, cudaMemcpyHostToDevice));
-    CUDA_ASSERT(cudaMemcpy(pipe->d_orig_U, next_frame->U, cm->chroma_size, cudaMemcpyHostToDevice));
-    CUDA_ASSERT(cudaMemcpy(pipe->d_orig_V, next_frame->V, cm->chroma_size, cudaMemcpyHostToDevice));
+    CUDA_ASSERT(cudaMemcpyAsync(pipe->d_orig_Y, next_frame->Y, cm->luma_size, cudaMemcpyHostToDevice, pipe->stream_image));
+    CUDA_ASSERT(cudaMemcpyAsync(pipe->d_orig_U, next_frame->U, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_image));
+    CUDA_ASSERT(cudaMemcpyAsync(pipe->d_orig_V, next_frame->V, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_image));
 
-    CUDA_ASSERT(cudaMemcpy(pipe->d_recons_Y, pipe->h_recons->Y, cm->luma_size, cudaMemcpyHostToDevice));
-    CUDA_ASSERT(cudaMemcpy(pipe->d_recons_U, pipe->h_recons->U, cm->chroma_size, cudaMemcpyHostToDevice));
-    CUDA_ASSERT(cudaMemcpy(pipe->d_recons_V, pipe->h_recons->V, cm->chroma_size, cudaMemcpyHostToDevice));
+    CUDA_ASSERT(cudaMemcpyAsync(pipe->d_recons_Y, pipe->h_recons->Y, cm->luma_size, cudaMemcpyHostToDevice, pipe->stream_image));
+    CUDA_ASSERT(cudaMemcpyAsync(pipe->d_recons_U, pipe->h_recons->U, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_image));
+    CUDA_ASSERT(cudaMemcpyAsync(pipe->d_recons_V, pipe->h_recons->V, cm->chroma_size, cudaMemcpyHostToDevice, pipe->stream_image));
   }
 
   /** save buffer (slow write-to-disk function)

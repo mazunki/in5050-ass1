@@ -27,7 +27,7 @@ __device__ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, u
 __global__ void c63_motion_compensate_kernel(macroblock *d_mbs, int mb_cols, int mb_rows, uint8_t *d_predicted, uint8_t *d_ref, int padw);
 
 
-__host__ __device__ static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *predicted, uint8_t *ref, int padw);
+__device__ static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *predicted, uint8_t *ref, int padw);
 
 
 
@@ -188,36 +188,8 @@ __global__ void c63_motion_compensate_kernel(struct macroblock *mbs, int mb_cols
   mc_block_8x8(mb, mb_x, mb_y, predicted, ref, padw);
 }
 
-void c63_motion_compensate_legacy(struct c63_common *cm)
-{
-  int mb_x, mb_y;
-
-  /* Luma */
-  for (mb_y = 0; mb_y < cm->mb_rows_luma; ++mb_y)
-  {
-    for (mb_x = 0; mb_x < cm->mb_cols_chroma; ++mb_x)
-    {
-      struct macroblock *mb = &cm->curframe->mbs[Y_COMPONENT] [mb_y * cm->mb_cols_luma + mb_x];
-      mc_block_8x8(mb, mb_x, mb_y, cm->curframe->predicted->Y, cm->refframe->recons->Y, cm->padw[Y_COMPONENT]);
-    }
-  }
-
-  /* Chroma */
-  for (mb_y = 0; mb_y < cm->mb_rows_chroma; ++mb_y)
-  {
-    for (mb_x = 0; mb_x < cm->mb_cols_chroma; ++mb_x)
-    {
-      struct macroblock *mb_u = &cm->curframe->mbs[U_COMPONENT][mb_y * cm->mb_cols_luma + mb_x];
-      mc_block_8x8(mb_u, mb_x, mb_y, cm->curframe->predicted->U, cm->refframe->recons->U, cm->padw[U_COMPONENT]);
-
-      struct macroblock *mb_v = &cm->curframe->mbs[V_COMPONENT][mb_y * cm->mb_cols_luma + mb_x];
-      mc_block_8x8(mb_v, mb_x, mb_y, cm->curframe->predicted->V, cm->refframe->recons->V, cm->padw[V_COMPONENT]);
-    }
-  }
-}
-
 /* writes the prediction for a full macroblock */
-__host__ __device__ static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *predicted, uint8_t *ref, int padw)
+__device__ static void mc_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *predicted, uint8_t *ref, int padw)
 {
   if (!mb->use_mv) { return; }
 

@@ -8,7 +8,7 @@
 #define MAX_FILELENGTH 200
 #define DEFAULT_OUTPUT_FILE "a.mjpg"
 
-#define FRAMEBUFFER_SIZE 4
+#define FRAMEBUFFER_SIZE 2
 
 #define PI 3.14159265358979
 #define ILOG2 1.442695040888963 // 1/log(2);
@@ -99,6 +99,10 @@ struct c63_pipeline {
   yuv_t *h_predicted;
   dct_t *h_residuals;
   macroblock *h_mbs[COLOR_COMPONENTS];
+
+  cudaStream_t stream_estimate_Y, stream_estimate_U, stream_estimate_V;
+  cudaStream_t stream_compensate_Y, stream_compensate_U, stream_compensate_V;
+  cudaStream_t stream_macroblocks, stream_predictions, stream_image;
 };
 
 struct c63_common

@@ -330,6 +330,8 @@ void parse_sof0(struct c63_common *cm)
     cm->num_mbs_luma = cm->mb_rows_luma * cm->mb_cols_luma;
     cm->num_mbs_chroma = cm->mb_rows_chroma * cm->mb_cols_chroma;
 
+    cm->pipe = c63_pipeline_init(cm->luma_size, cm->chroma_size, cm->num_mbs_luma, cm->num_mbs_chroma);
+
     cm->curframe = 0;
   }
 
@@ -413,16 +415,41 @@ int parse_c63_frame(struct c63_common *cm)
 
 void decode_c63_frame(struct c63_common *cm, FILE *fout)
 {
-  /* Motion Compensation */
-  if (!cm->curframe->keyframe) { c63_motion_compensate_legacy(cm); }
+  if (!cm->curframe->keyframe) {
+    
+    CUDA_ASSERT(cudaMemcpy(cm->curframe->mbs[Y_COMPONENT], cm->pipe->d_mbs[Y_COMPONENT], cm->num_mbs_luma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
+    CUDA_ASSERT(cudaMemcpy(cm->curframe->mbs[U_COMPONENT], cm->pipe->d_mbs[U_COMPONENT], cm->num_mbs_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
+    CUDA_ASSERT(cudaMemcpy(cm->curframe->mbs[V_COMPONENT], cm->pipe->d_mbs[V_COMPONENT], cm->num_mbs_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
 
-  /* Decode residuals */
-  dequantize_idct(cm->curframe->residuals->Ydct, cm->curframe->predicted->Y,
-      cm->ypw, cm->yph, cm->curframe->recons->Y, cm->quanttbl[0]);
-  dequantize_idct(cm->curframe->residuals->Udct, cm->curframe->predicted->U,
-      cm->upw, cm->uph, cm->curframe->recons->U, cm->quanttbl[1]);
-  dequantize_idct(cm->curframe->residuals->Vdct, cm->curframe->predicted->V,
-      cm->vpw, cm->vph, cm->curframe->recons->V, cm->quanttbl[2]);
+    CUDA_ASSERT(cudaMemcpy(cm->pipe->d_refframe_Y, cm->refframe->recons->Y, cm->luma_size, cudaMemcpyHostToDevice));
+    CUDA_ASSERT(cudaMemcpy(cm->pipe->d_refframe_U, cm->refframe->recons->U, cm->chroma_size, cudaMemcpyHostToDevice));
+    CUDA_ASSERT(cudaMemcpy(cm->pipe->d_refframe_V, cm->refframe->recons->V, cm->chroma_size, cudaMemcpyHostToDevice));
+    CUDA_ASSERT(cudaDeviceSynchronize());
+    
+    /** Motion Compensation (cuda function)
+     *   @param[in] d_mbs
+     *   @param[out] d_predicted
+     *   @param[in] d_ref
+     */
+
+    c63_motion_compensate(cm);
+    CUDA_ASSERT(cudaDeviceSynchronize());
+
+    CUDA_ASSERT(cudaMemcpy(cm->curframe->predicted->Y, cm->pipe->d_predicted_Y, cm->luma_size, cudaMemcpyDeviceToHost));
+    CUDA_ASSERT(cudaMemcpy(cm->curframe->predicted->U, cm->pipe->d_predicted_U, cm->chroma_size, cudaMemcpyDeviceToHost));
+    CUDA_ASSERT(cudaMemcpy(cm->curframe->predicted->V, cm->pipe->d_predicted_V, cm->chroma_size, cudaMemcpyDeviceToHost));
+  }
+
+
+
+   /** dequantize (slow CPU-only function)
+    *   @param[in]  residuals
+    *   @param[in]  predicted
+    *   @param[out] recons
+    */
+  dequantize_idct(cm->curframe->residuals->Ydct, cm->curframe->predicted->Y, cm->ypw, cm->yph, cm->curframe->recons->Y, cm->quanttbl[Y_COMPONENT]);
+  dequantize_idct(cm->curframe->residuals->Udct, cm->curframe->predicted->U, cm->upw, cm->uph, cm->curframe->recons->U, cm->quanttbl[U_COMPONENT]);
+  dequantize_idct(cm->curframe->residuals->Vdct, cm->curframe->predicted->V, cm->vpw, cm->vph, cm->curframe->recons->V, cm->quanttbl[V_COMPONENT]);
 
 #ifndef C63_PRED
   /* Write result */
@@ -458,16 +485,36 @@ int main(int argc, char **argv)
 
   c63_common *cm = (c63_common*)calloc(1, sizeof(*cm));
   cm->e_ctx.fp = fin;
+  parse_c63_frame(cm); // initializes c63_common
+  
+  rewind(fin);
 
   int framenum = 0;
   while(fpeek(fin) != EOF)
   {
     DEBUG("Decoding frame %d", framenum);
+    cm->curframe = prepare_next_frame(cm);
 
+    /**
+     * @param[in]  fin
+     * @param[out] curframe->mbs
+     * @param[out] curframe->height, width, num_blocks_luma, num_blocks_chroma
+     */
     parse_c63_frame(cm);
+
+    CUDA_ASSERT(cudaMemcpy(cm->pipe->d_mbs[Y_COMPONENT], cm->curframe->mbs[Y_COMPONENT], cm->num_mbs_luma * sizeof(struct macroblock), cudaMemcpyHostToDevice));
+    CUDA_ASSERT(cudaMemcpy(cm->pipe->d_mbs[U_COMPONENT], cm->curframe->mbs[U_COMPONENT], cm->num_mbs_chroma * sizeof(struct macroblock), cudaMemcpyHostToDevice));
+    CUDA_ASSERT(cudaMemcpy(cm->pipe->d_mbs[V_COMPONENT], cm->curframe->mbs[V_COMPONENT], cm->num_mbs_chroma * sizeof(struct macroblock), cudaMemcpyHostToDevice));
+
+     /**
+     * @param[in]  fin
+     * @param[out] curframe->mbs
+     */
     decode_c63_frame(cm, fout);
     framenum++;
   }
+  c63_pipeline_free(cm->pipe);
+  free(cm);
 
   fclose(fin);
   fclose(fout);

@@ -301,15 +301,18 @@ int main(int argc, char **argv)
     exit(EXIT_FAILURE);
   }
 
-  while (fpeek(infile) != EOF)
-  {
+  do {
     int fb_next = (cm->fb_curr_index+1) % FRAMEBUFFER_SIZE;
 
-    if (read_yuv(infile, cm, fb_next) == NULL) {
-      exit(EXIT_FAILURE);
+    if (fpeek(infile) != EOF) {
+      if (read_yuv(infile, cm, fb_next) == NULL) {
+        exit(EXIT_FAILURE);
+      }
+    } else {
+      cm->frame_buffer[fb_next] = NULL;
     }
 
-    printf("Encoding frame %d...", numframes);
+    printf("Encoding frame %d...", numframes+1);
     c63_encode_image(cm);
 
     printf(" done!\n");
@@ -318,7 +321,12 @@ int main(int argc, char **argv)
     ++numframes;
 
     if (limit_numframes && numframes >= limit_numframes) { break; }
-  }
+  } while (cm->frame_buffer[cm->fb_curr_index] != NULL);
+
+
+  printf("Completed encoding! Encoded %d frames", numframes);
+
+
 
   free_c63_enc(cm);
   fclose(outfile);

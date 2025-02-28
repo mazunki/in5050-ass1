@@ -17,15 +17,14 @@
 
 
 // estimation
-__global__ void c63_motion_estimate_kernel(uint8_t *d_orig, uint8_t *d_recons, macroblock *d_mbs, int width, int height, int range);
+__global__ void c63_motion_estimate_kernel(uint8_t *d_orig, uint8_t *d_recons, macroblock *d_mbs, int comp);
 
 __device__ static int sad_block_8x8(uint8_t *block1, uint8_t *block2, int stride);
 __device__ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, uint8_t *orig, uint8_t *ref, int padw, int padh, int range);
 
 
 // compensation
-__global__ void c63_motion_compensate_kernel(macroblock *d_mbs, int mb_cols, int mb_rows, uint8_t *d_predicted, uint8_t *d_ref, int padw);
-
+__global__ void c63_motion_compensate_kernel(struct macroblock *d_mbs, uint8_t *d_predicted, uint8_t *d_ref, int comp);
 
 /** constant memory */
 __constant__ int c_padw[COLOR_COMPONENTS];
@@ -75,13 +74,13 @@ __host__ void c63_motion_estimate(struct c63_common *cm)
 
   CUDA_ASSERT(cudaStreamSynchronize(pipe->stream_image));
 
-  c63_motion_estimate_kernel<<<grid_size_luma,   block_size, 0, pipe->stream_estimate_Y>>>(pipe->d_orig_Y, pipe->d_refframe_Y, pipe->d_mbs[Y_COMPONENT], cm->padw[Y_COMPONENT], cm->padh[Y_COMPONENT], cm->me_search_range);
+  c63_motion_estimate_kernel<<<grid_size_luma, block_size, 0, pipe->stream_estimate_Y>>>(pipe->d_orig_Y, pipe->d_refframe_Y, pipe->d_mbs[Y_COMPONENT], Y_COMPONENT);
   CUDA_CHECK();
 
-  c63_motion_estimate_kernel<<<grid_size_chroma, block_size, 0, pipe->stream_estimate_U>>>(pipe->d_orig_U, pipe->d_refframe_U, pipe->d_mbs[U_COMPONENT], cm->padw[U_COMPONENT], cm->padh[U_COMPONENT], cm->me_search_range/2);
+  c63_motion_estimate_kernel<<<grid_size_chroma, block_size, 0, pipe->stream_estimate_U>>>(pipe->d_orig_U, pipe->d_refframe_U, pipe->d_mbs[U_COMPONENT], U_COMPONENT);
   CUDA_CHECK();
 
-  c63_motion_estimate_kernel<<<grid_size_chroma, block_size, 0, pipe->stream_estimate_V>>>(pipe->d_orig_V, pipe->d_refframe_V, pipe->d_mbs[V_COMPONENT], cm->padw[V_COMPONENT], cm->padh[V_COMPONENT], cm->me_search_range/2);
+  c63_motion_estimate_kernel<<<grid_size_chroma, block_size, 0, pipe->stream_estimate_V>>>(pipe->d_orig_V, pipe->d_refframe_V, pipe->d_mbs[V_COMPONENT], V_COMPONENT);
   CUDA_CHECK();
 
 }
@@ -174,20 +173,18 @@ __device__ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, u
 }
 
 
-__global__ void c63_motion_estimate_kernel(uint8_t *d_orig, uint8_t *d_recons, macroblock *d_mbs, int width, int height, int range)
+__global__ void c63_motion_estimate_kernel(uint8_t *d_orig, uint8_t *d_recons, macroblock *d_mbs, int comp)
 {
-  int mb_x = blockIdx.x;
-  int mb_y = blockIdx.y;
-  int mb_cols = width / MACROBLOCK_SIZE;
-  int mb_rows = height / MACROBLOCK_SIZE;
+    int mb_x = blockIdx.x;
+    int mb_y = blockIdx.y;
 
-  if (mb_x >= mb_cols || mb_y >= mb_rows) {
-    return;
-  }
+    if (mb_x >= c_mb_cols[comp] || mb_y >= c_mb_rows[comp]) return;
 
-  macroblock *mb = &d_mbs[mb_y * mb_cols + mb_x];
-  me_block_8x8(mb, mb_x, mb_y, d_orig, d_recons, width, height, range);
+    macroblock *mb = &d_mbs[mb_y * c_mb_cols[comp] + mb_x];
+
+    me_block_8x8(mb, mb_x, mb_y, d_orig, d_recons, c_padw[comp], c_padh[comp], c_me_search_range);
 }
+
 
 
 /**
@@ -213,38 +210,33 @@ __host__ void c63_motion_compensate(struct c63_common *cm)
 
   CUDA_ASSERT(cudaStreamSynchronize(pipe->stream_estimate_Y));
 
-  c63_motion_compensate_kernel<<<grid_size_luma,   block_size, 0, pipe->stream_compensate_Y>>>(pipe->d_mbs[Y_COMPONENT], cm->mb_cols_luma,   cm->mb_rows_luma,   pipe->d_predicted_Y, pipe->d_refframe_Y, cm->padw[Y_COMPONENT]);
+  c63_motion_compensate_kernel<<<grid_size_luma, block_size, 0, pipe->stream_compensate_Y>>>(pipe->d_mbs[Y_COMPONENT], pipe->d_predicted_Y, pipe->d_refframe_Y, Y_COMPONENT);
   CUDA_CHECK();
 
-  CUDA_ASSERT(cudaStreamSynchronize(pipe->stream_estimate_U));
-  c63_motion_compensate_kernel<<<grid_size_chroma, block_size, 0, pipe->stream_compensate_U>>>(pipe->d_mbs[U_COMPONENT], cm->mb_cols_chroma, cm->mb_rows_chroma, pipe->d_predicted_U, pipe->d_refframe_U, cm->padw[U_COMPONENT]);
-  
-
-  CUDA_ASSERT(cudaStreamSynchronize(pipe->stream_estimate_V));
-  c63_motion_compensate_kernel<<<grid_size_chroma, block_size, 0, pipe->stream_compensate_V>>>(pipe->d_mbs[V_COMPONENT], cm->mb_cols_chroma, cm->mb_rows_chroma, pipe->d_predicted_V, pipe->d_refframe_V, cm->padw[V_COMPONENT]);
+  c63_motion_compensate_kernel<<<grid_size_chroma, block_size, 0, pipe->stream_compensate_U>>>(pipe->d_mbs[U_COMPONENT], pipe->d_predicted_U, pipe->d_refframe_U, U_COMPONENT);
   CUDA_CHECK();
+
+  c63_motion_compensate_kernel<<<grid_size_chroma, block_size, 0, pipe->stream_compensate_V>>>(pipe->d_mbs[V_COMPONENT], pipe->d_predicted_V, pipe->d_refframe_V, V_COMPONENT);
+  CUDA_CHECK();
+
 }
 
-__global__ void c63_motion_compensate_kernel(struct macroblock *d_mbs, int mb_cols, int mb_rows, uint8_t *d_predicted, uint8_t *d_ref, int padw)
+__global__ void c63_motion_compensate_kernel(struct macroblock *d_mbs, uint8_t *d_predicted, uint8_t *d_ref, int comp)
 {
-  __shared__ uint8_t s_predictions[MACROBLOCK_SIZE][MACROBLOCK_SIZE];
+    int mb_x = blockIdx.x;
+    int mb_y = blockIdx.y;
 
-  int mb_x = blockIdx.x;
-  int mb_y = blockIdx.y;
+    if (mb_x >= c_mb_cols[comp] || mb_y >= c_mb_rows[comp]) return;
 
-  if (mb_x >= mb_cols || mb_y >= mb_rows) return;
+    macroblock *mb = &d_mbs[mb_y * c_mb_cols[comp] + mb_x];
+    if (!mb->use_mv) return;
 
-  macroblock *mb = &d_mbs[mb_y * mb_cols + mb_x];
-  if (!mb->use_mv) return;
+    int left = mb_x * MACROBLOCK_SIZE;
+    int top = mb_y * MACROBLOCK_SIZE;
 
-  int tx = threadIdx.x;
-  int ty = threadIdx.y;
-  int left = mb_x * MACROBLOCK_SIZE;
-  int top = mb_y * MACROBLOCK_SIZE;
+    int tx = threadIdx.x;
+    int ty = threadIdx.y;
 
-  s_predictions[ty][tx] = d_ref[(top + ty + mb->mv_y) * padw + (left + tx + mb->mv_x)];
-  __syncthreads();
-
-  d_predicted[(top + ty) * padw + (left + tx)] = s_predictions[ty][tx];
+    d_predicted[(top + ty) * c_padw[comp] + (left + tx)] = d_ref[(top + ty + mb->mv_y) * c_padw[comp] + (left + tx + mb->mv_x)];
 }
 

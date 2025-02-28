@@ -9,5 +9,7 @@ void c63_motion_estimate(struct c63_common *cm);
 void c63_motion_compensate(struct c63_common *cm);
 void c63_motion_compensate_legacy(struct c63_common *cm);
 
+void c63_initialize_constant_values(struct c63_common *cm);
+
 #endif  /* C63_ME_H_ */
 

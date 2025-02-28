@@ -27,6 +27,29 @@ __device__ static void me_block_8x8(struct macroblock *mb, int mb_x, int mb_y, u
 __global__ void c63_motion_compensate_kernel(macroblock *d_mbs, int mb_cols, int mb_rows, uint8_t *d_predicted, uint8_t *d_ref, int padw);
 
 
+/** constant memory */
+__constant__ int c_padw[COLOR_COMPONENTS];
+__constant__ int c_padh[COLOR_COMPONENTS];
+__constant__ int c_mb_cols[COLOR_COMPONENTS];
+__constant__ int c_mb_rows[COLOR_COMPONENTS];
+__constant__ int c_me_search_range;
+
+void c63_initialize_constant_values(struct c63_common *cm)
+{
+    int padw[3] = {cm->padw[Y_COMPONENT], cm->padw[U_COMPONENT], cm->padw[V_COMPONENT]};
+    int padh[3] = {cm->padh[Y_COMPONENT], cm->padh[U_COMPONENT], cm->padh[V_COMPONENT]};
+    int mb_cols[3] = {cm->mb_cols_luma, cm->mb_cols_chroma, cm->mb_cols_chroma};
+    int mb_rows[3] = {cm->mb_rows_luma, cm->mb_rows_chroma, cm->mb_rows_chroma};
+    int me_range = cm->me_search_range;
+
+    cudaMemcpyToSymbol(c_padw, padw, sizeof(padw));
+    cudaMemcpyToSymbol(c_padh, padh, sizeof(padh));
+    cudaMemcpyToSymbol(c_mb_cols, mb_cols, sizeof(mb_cols));
+    cudaMemcpyToSymbol(c_mb_rows, mb_rows, sizeof(mb_rows));
+    cudaMemcpyToSymbol(c_me_search_range, &me_range, sizeof(int));
+}
+
+
 
 /**
  * @brief Motion estimation

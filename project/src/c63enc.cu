@@ -225,6 +225,8 @@ struct c63_common* init_c63_enc(int width, int height)
   }
   cm->fb_curr_index = 0;
 
+  c63_initialize_constant_values(cm);
+
   return cm;
 }
 

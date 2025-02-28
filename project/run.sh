@@ -45,12 +45,13 @@ pipeline() {
 	echo "[PIPELINE] building project..."
 	builder "cd '${BUILD_DIR}' && make"
 
-	echo "[PIPELINE] syncing build machine with gpu machine..."
 	runner "mkdir -p '${WORKDIR}'"
-	(set -x; ssh "${BUILDER}" "rsync -av --progress '${BUILD_DIR}/' '${RUNNER}:${BUILD_DIR}/'")
-	(set -x; ssh "${BUILDER}" "rsync -av --progress '${SRC_DIR}/' '${RUNNER}:${SRC_DIR}/'")
+	if [ ! "${RUNNER}" = "${BUILDER}" ]; then
+	  echo "[PIPELINE] syncing build machine with gpu machine..."
+	  (set -x; ssh "${BUILDER}" "rsync -av --progress '${BUILD_DIR}/' '${RUNNER}:${BUILD_DIR}/'")
+	  (set -x; ssh "${BUILDER}" "rsync -av --progress '${SRC_DIR}/' '${RUNNER}:${SRC_DIR}/'")
+	fi
 	
-
 	echo "[PIPELINE] running profiling on gpu machine..."
 	echo "[PIPELINE] wiping workdir..."
 	runner "rm -rf '${WORKDIR}'"

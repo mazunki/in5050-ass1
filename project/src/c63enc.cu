@@ -97,7 +97,6 @@ static void c63_encode_image(struct c63_common *cm)
     CUDA_ASSERT(cudaMemcpy(cm->pipe->d_orig_Y, cm->curframe->orig->Y, cm->luma_size, cudaMemcpyHostToDevice));
     CUDA_ASSERT(cudaMemcpy(cm->pipe->d_orig_U, cm->curframe->orig->U, cm->chroma_size, cudaMemcpyHostToDevice));
     CUDA_ASSERT(cudaMemcpy(cm->pipe->d_orig_V, cm->curframe->orig->V, cm->chroma_size, cudaMemcpyHostToDevice));
-    CUDA_ASSERT(cudaDeviceSynchronize());
 
     /** Motion Estimation
      *   @param[in]  d_orig
@@ -105,7 +104,6 @@ static void c63_encode_image(struct c63_common *cm)
      *   @param[out] d_mbs
      */
     c63_motion_estimate(cm);
-    CUDA_ASSERT(cudaDeviceSynchronize());
 
     CUDA_ASSERT(cudaStreamSynchronize(pipe->stream_estimate_Y));
     CUDA_ASSERT(cudaMemcpy(cm->curframe->mbs[Y_COMPONENT], pipe->d_mbs[Y_COMPONENT], cm->num_mbs_luma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
@@ -115,7 +113,6 @@ static void c63_encode_image(struct c63_common *cm)
 
     CUDA_ASSERT(cudaStreamSynchronize(pipe->stream_estimate_V));
     CUDA_ASSERT(cudaMemcpy(cm->curframe->mbs[V_COMPONENT], pipe->d_mbs[V_COMPONENT], cm->num_mbs_chroma * sizeof(struct macroblock), cudaMemcpyDeviceToHost));
-    CUDA_ASSERT(cudaDeviceSynchronize());
 
     /** Motion Compensation (gpu function)
      *   @param[in]  d_mbs
@@ -123,7 +120,6 @@ static void c63_encode_image(struct c63_common *cm)
      *   @param[in]  d_ref
      */
     c63_motion_compensate(cm);
-    CUDA_ASSERT(cudaDeviceSynchronize());
 
     CUDA_ASSERT(cudaStreamSynchronize(pipe->stream_compensate_Y));
     CUDA_ASSERT(cudaMemcpy(cm->curframe->predicted->Y, pipe->d_predicted_Y, cm->luma_size, cudaMemcpyDeviceToHost));
@@ -133,7 +129,6 @@ static void c63_encode_image(struct c63_common *cm)
 
     CUDA_ASSERT(cudaStreamSynchronize(pipe->stream_compensate_V));
     CUDA_ASSERT(cudaMemcpy(cm->curframe->predicted->V, pipe->d_predicted_V, cm->chroma_size, cudaMemcpyDeviceToHost));
-    CUDA_ASSERT(cudaDeviceSynchronize());
   }
 
   /** quantize (slow CPU-only function)

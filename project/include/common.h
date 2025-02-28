@@ -34,6 +34,8 @@
 #define DEBUG(fmt, ...)
 #endif
 
+#define SWAP_POINTERS(x, y, T) do { T SWAP = x; x = y; y = SWAP; } while (0)
+
 // Declarations
 struct frame* create_frame(struct c63_common *cm, yuv_t *image);
 
@@ -42,7 +44,7 @@ void destroy_frame(struct frame *f);
 struct c63_pipeline* c63_pipeline_init(size_t frame_size, size_t chroma_size, size_t num_blocks_luma, size_t num_blocks_chroma);
 void c63_pipeline_free(struct c63_pipeline *pipe);
 
-struct frame* prepare_next_frame(struct c63_common *cm, yuv_t *image);
+struct frame* prepare_next_frame(struct c63_common *cm);
 
 void dump_image(yuv_t *image, int w, int h, FILE *fp);
 

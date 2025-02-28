@@ -8,6 +8,8 @@
 #define MAX_FILELENGTH 200
 #define DEFAULT_OUTPUT_FILE "a.mjpg"
 
+#define FRAMEBUFFER_SIZE 4
+
 #define PI 3.14159265358979
 #define ILOG2 1.442695040888963 // 1/log(2);
 
@@ -86,27 +88,17 @@ struct frame
   int keyframe;
 };
 
-struct c63_input {
-  yuv_t *h_orig;      // new image
-  yuv_t *h_refframe;  // prev's frame's h_recons
-};
-
-struct c63_output {
-  yuv_t *h_predicted;  // after motion estimation
-  dct_t *h_residuals;  // after motion compensation
-  yuv_t *h_recons;     // after dct + idct
-};
-
 struct c63_pipeline {
-  struct c63_input *input;
-  struct c63_output *output;
-
   uint8_t *d_orig_Y, *d_orig_U, *d_orig_V;
   uint8_t *d_recons_Y, *d_recons_U, *d_recons_V;
   uint8_t *d_refframe_Y, *d_refframe_U, *d_refframe_V;
   uint8_t *d_predicted_Y, *d_predicted_U, *d_predicted_V;
-
   macroblock *d_mbs[COLOR_COMPONENTS];
+
+  yuv_t *h_refframe, *h_recons;  // note that these pointers are swapped each frame
+  yuv_t *h_predicted;
+  dct_t *h_residuals;
+  macroblock *h_mbs[COLOR_COMPONENTS];
 };
 
 struct c63_common
@@ -137,6 +129,8 @@ struct c63_common
 
   struct entropy_ctx e_ctx;
   struct c63_pipeline *pipe;
+  yuv_t *frame_buffer[FRAMEBUFFER_SIZE];
+  int fb_curr_index;
 };
 
 #endif  /* C63_C63_H_ */

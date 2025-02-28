@@ -414,7 +414,7 @@ int parse_c63_frame(struct c63_common *cm)
 void decode_c63_frame(struct c63_common *cm, FILE *fout)
 {
   /* Motion Compensation */
-  if (!cm->curframe->keyframe) { c63_motion_compensate(cm); }
+  if (!cm->curframe->keyframe) { c63_motion_compensate_legacy(cm); }
 
   /* Decode residuals */
   dequantize_idct(cm->curframe->residuals->Ydct, cm->curframe->predicted->Y,

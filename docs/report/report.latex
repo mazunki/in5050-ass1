@@ -57,7 +57,7 @@ For reference, the decoder will only have access to the motion vectors (whence e
 \begin{figure}[h]
   \centering
   \includegraphics[width=1.0\columnwidth]{assets/dataflow.png} 
-  \caption{Dataflow diagram for Codec63 Encoder (left)/Decoder (right) The background colour of each function corresponds with its data output.}
+  \caption{Dataflow diagram for Codec63 Encoder (left)/Decoder (right) The background colour of each function corresponds with its data output. The lines represent data dependencies.}
   \label{fig:dataflow}
 \end{figure}
 
@@ -68,6 +68,7 @@ In the initial code, the encoder and the decoder shared the same functions for t
 In order to optimize the code, we need to understand the relationship between functions and the data flow. For this, we will display this information both in the form of a descriptive table using the same names as used in-code, and a flowchart figure friendlier to people.
 
 \begin{table*}[h]
+  \caption{Relevant functions}
   \renewcommand{\arraystretch}{1.3}
   \rowcolors{2}{gray!20}{white}
   % chktex-file 44
@@ -84,6 +85,7 @@ In order to optimize the code, we need to understand the relationship between fu
     \code{write_frame} & \code{mbs}, \code{residuals} & encoded file & disk, cpu & saves the encoded data to disk with required header information for each frame \\
     \code{parse_frame} & encoded file & \code{mbs}, \code{residuals} & disk, cpu & parses an encoded frame, storing the motion vectors and the residuals into a frame buffer
   \end{tabular}
+  \label{relevant-functions}
 \end{table*}
 
 \section{Objectives}
@@ -100,6 +102,7 @@ The second cause of slowness is the fact that each individual function is slow b
 Initial measurements of the precode tells us that the complete encoding takes roughly 122.28 \secs, \code{fputc} takes between 3.34 \us and 9.71 \us, and each function call in the \code{encode_image} can be seen in the table below:
 
 \begin{table}[h]
+  \caption{CPU-only measurements}
   \renewcommand{\arraystretch}{1.3}
   \rowcolors{2}{gray!20}{white}
   \begin{tabular}{>{\scriptsize}p{4cm}|>{\scriptsize}p{3cm}}
@@ -114,6 +117,7 @@ Initial measurements of the precode tells us that the complete encoding takes ro
     Inverse quantization and IDCT & 33.09 ms \\
     Writing frame & 2.04 ms \\
   \end{tabular}
+  \label{slow-cpu-timings}
 \end{table}
 
 \subsection{Parallelizing pixel maths}
@@ -165,32 +169,50 @@ However, further optimization could be achieved by improving memory access patte
 \subsection{Shared memory and constant memory}
 In order to avoid waiting for data transfer between warps, we make use of shared memory for the SAD blocks. Shared memory is much faster than the global memory it would have used otherwise. We also initialize constant memory since they are never changed, and can thus be cached between kernel launches.
 
-
 \section{Results}
+We have profiling results for a few iterations of the code. The initial cpu-driven execution was described in Table~\ref{slow-cpu-timings}. On top of this we have the following measurements:
+
 \begin{table}[h]
+  \caption{Measurements from Nsight Systems \nocite{nsight-sys}}
   \renewcommand{\arraystretch}{1.3}
   \rowcolors{2}{gray!20}{white}
-  \begin{tabular}{>{\scriptsize}p{6cm}|>{\scriptsize}p{3cm}}
+  \begin{tabular}{>{\scriptsize}p{3cm}|>{\scriptsize}l|>{\scriptsize}l|>{\scriptsize}l}
     \hline
     \rowcolor{gray!50}
-    \textbf{Configuration} & \textbf{Execution Time} \\ 
+    \textbf{Configuration} & \textbf{Total} & \textbf{Estimation} & \textbf{Frame} \\ 
     \hline
-    Pre-code & 120 s \\
-    Parallel Motion Estimation & 28.5 s \\
-    Async + Streams + Memory Pinning & 17.75 s \\
+    CPU-only & 120 s & 339 \ms & 407 \ms \\
+    Redundant device allocation & 540s & N/A & N/A \\
+    Synchronized kernels & 64.03 s & 139.371 \ms & 212 \ms \\
+    Streamed kernels & 28.5 s & N/A & N/A \\
+    Framebuffering/async memory transfer & 17.75 s & N/A & N/A \\
   \end{tabular}
+  \label{measurements}
 \end{table}
 
+All the measurements done here are done with CMake set to Debug mode. Using release mode easily improves these measurements by an order of magnitude.
 
 \section{Discussion}
 \subsection{Malfunctioning GPU machines}
-Both machines (\code{in5050-2014-11} and \code{in5050-2016-10}) were down since Friday 2025-02-31 afternoon, which is when we were both wrapping up our code optimizations, and started to collect profiling summaries for this report. This consequently affect both our code delivery, as we could not test the last commits we had planned to include, and made it impossible to add any new major optimizations.
+Both of the machines provided to us (\code{in5050-2014-11} and \code{in5050-2016-10}) were down since Friday 2025-02-31 afternoon, which is when we were both wrapping up our code optimizations, and started to collect profiling summaries for this report. This consequently affect both our code delivery, as we could not test the last commits we had planned to include, and made it impossible to add any new major optimizations.
 
 We had planned to collect profiles for each feature of optimization we have added, but this was impossible since we do not have access to an Nvidia machine when the servers are down. We do have some data points, but we can't know for certain which commits they belong to. 
 
 Most of this report stems from the progressive profiling we have done, and the vibes we've felt from each step. Sadly, though, we did not have a chance to make a combinatorial permutation of the different approaches, nor do we have exact values for what each step of the kernel tuning added.
 
+\subsection{Further ideas}
+Our implementation is far from perfect. We have a few ideas in mind which we didn't have the opportunity to implement due to problematic hardware:
+\begin{itemize}
+  \item Using shuffle functions (\code{__shfl_*}) could improve sad block calculations by improving branching and looping with a warp by having each warp be aware of its index.
+  \item Reusing kernel launches with new parameter values would minimize the overhead each frame.
+  \item Using \code{cudaMemPrefetchAsync} might allow the GPU to handle memory better, since it knows better when it has free memory. It might be even better to calculate the optimal buffer banks and whatnot from ourside, instead. This should be tested.
+  \item Allocating more space for preemptive framebuffering on the GPU might be beneficial, as it seems we aren't even close to filling the device memory.
+  \item Combining the use of events for data transfers and kernel execution completion to preemptively launch memory transfers without stalling would allow for interleaving more CPU operations while we're waiting for the kernels to finish. That is, we want to remove all cases of manually synchronizing streams or devices, and have CUDA handle data dependencies by its own scheduler.
+\end{itemize}
+
 \section{Conclusion}
+We consider our task a success, but we do believe further improvements could benefit us. There is not too much to gain in our case from relying on the compiler's optimization flags, because the task is a bit more complex than what generic compiler algorithms know how to speed up due to the data dependency requirement which is in the spec of YUV and is thus our responsibility.
+
 Most of the information related to this report can be found on GitHub (\code{mazunki/in5050-ass1}\nocite{github}) at the \code{neo} branch.
 
 \printbibliography

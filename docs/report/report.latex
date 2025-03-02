@@ -167,6 +167,20 @@ In order to avoid waiting for data transfer between warps, we make use of shared
 
 
 \section{Results}
+\begin{table}[h]
+  \renewcommand{\arraystretch}{1.3}
+  \rowcolors{2}{gray!20}{white}
+  \begin{tabular}{>{\scriptsize}p{6cm}|>{\scriptsize}p{3cm}}
+    \hline
+    \rowcolor{gray!50}
+    \textbf{Configuration} & \textbf{Execution Time} \\ 
+    \hline
+    Pre-code & 120 s \\
+    Parallel Motion Estimation & 28.5 s \\
+    Async + Streams + Memory Pinning & 17.75 s \\
+  \end{tabular}
+\end{table}
+
 
 \section{Discussion}
 \subsection{Malfunctioning GPU machines}

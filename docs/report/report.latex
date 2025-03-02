@@ -56,16 +56,15 @@ For reference, the decoder will only have access to the motion vectors (whence e
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=1.0\columnwidth]{assets/dataflow.png} 
+  \includegraphics[width=1.1\columnwidth]{assets/dataflow.png} 
   \caption{Dataflow diagram for Codec63 Encoder (left)/Decoder (right) The background colour of each function corresponds with its data output. The lines represent data dependencies.}
   \label{fig:dataflow}
 \end{figure}
 
-
 \subsection{Data dependency constraints}
 In the initial code, the encoder and the decoder shared the same functions for the aforementioned steps: estimation, compensation, quantization and dequantization. It's important that the encoded frame written by the encoder shares the same format expected by the decoder's reader, and it's desirable that we maintain function compatibility between both versions for consistency; even if our main goal is to improve the encoder.
 
-In order to optimize the code, we need to understand the relationship between functions and the data flow. For this, we will display this information both in the form of a descriptive table using the same names as used in-code, and a flowchart figure friendlier to people.
+In order to optimize the code, we need to understand the relationship between functions and the data flow. For reference, we will display this information both in the form of a descriptive table (Table~\ref{tab:relevant-functions}) using the same names as used in-code, and a flowchart figure (figure~\ref{fig:dataflow}) friendlier to people.
 
 \begin{table*}[h]
   \caption{Relevant functions}
@@ -85,40 +84,42 @@ In order to optimize the code, we need to understand the relationship between fu
     \code{write_frame} & \code{mbs}, \code{residuals} & encoded file & disk, cpu & saves the encoded data to disk with required header information for each frame \\
     \code{parse_frame} & encoded file & \code{mbs}, \code{residuals} & disk, cpu & parses an encoded frame, storing the motion vectors and the residuals into a frame buffer
   \end{tabular}
-  \label{relevant-functions}
+  \label{tab:relevant-functions}
 \end{table*}
 
 \section{Objectives}
 The purpose of having an encoder is to reduce the file size of our image, but this is not the focus of this assignment: we are simply reusing the algorithms provided to us. Our goal, primarily, is to make the encoder run faster by the means of exploiting the parallel nature of the task. For this, we will be using CUDA, a platform and interface allowing us to execute code on multicore GPUs.
 
+\pagebreak
+
 \section{Optimization techniques}
-Table show some of the optimization techniques we used, and the results of each. the biggest improvement was when we Parallalize the motion estimation. The use of asyncrons memory transfers with streams was also a big improvement.. After that, we can assume that the optimization had the most impact on the kernel. And even if the the tme diden't massively improve, the propercentage wise of the whole? kenrel usage had when dwon. 
-
-
 Without getting into the specifics, there are two main areas which causes the encoder to be slow. The first one is the synchroneous nature of running functions in sequence, where each step has to wait for the previous one to finish. In a naïve implementation, this is necessary because we need to wait for the data to be populated before we continue.
 
 The second cause of slowness is the fact that each individual function is slow by itself. In an initial profiling we observed that most of the time spent encoding was active CPU time spent finding the motion vectors during estimation.
 
-Initial measurements of the precode tells us that the complete encoding takes roughly 122.28 \secs, \code{fputc} takes between 3.34 \us and 9.71 \us, and each function call in the \code{encode_image} can be seen in the table below:
+Initial measurements of the precode running on the CPU tells us that the complete encoding takes roughly 122.28 \secs, where each relevant function call in the \code{encode_image} can be seen in the table below:
 
 \begin{table}[h]
   \caption{CPU-only measurements}
+  \centering
   \renewcommand{\arraystretch}{1.3}
   \rowcolors{2}{gray!20}{white}
-  \begin{tabular}{>{\scriptsize}p{4cm}|>{\scriptsize}p{3cm}}
+  \begin{tabular}{l|c}
     \hline
     \rowcolor{gray!50}
     \textbf{Function} & \textbf{Execution Time} \\ 
     \hline
-    Frame management & 62.34 µs \\
-    Motion estimation & 339.56 ms \\
-    Motion compensation & 339.56 µs \\
-    DCT and quantization & 34.04 ms \\
-    Inverse quantization and IDCT & 33.09 ms \\
-    Writing frame & 2.04 ms \\
+    Frame loading & 62.34 µs \\
+    Estimation & 339.56 ms \\
+    Compensation & 339.56 µs \\
+    DCT+Quantization & 34.04 ms \\
+    Dequantization+iDCT & 33.09 ms \\
+    Frame writing & 2.04 ms \\
   \end{tabular}
-  \label{slow-cpu-timings}
+  \label{tab:slow-cpu-timings}
 \end{table}
+
+The values for quantization, DCT, dequantization and frame loading + frame writing are somewhat relevant to us even if we're not targetting them for our optimization. If we have to wait for these functions anyway, it doesn't really matter how fast our CUDA code becomes. That said, upgrading hardware will lower these caps, and we shouldn't stop just looking for improvements just because our current hardware is bottlenecked by this.
 
 \subsection{Parallelizing pixel maths}
 \subsubsection{Using CUDA to parallelize tasks}
@@ -136,9 +137,9 @@ As a note, we can avoid passing the index locations to the device, too, since ea
 This parallelization, with no further changes to the flow, reduces the total time from 122 \secs\, to roughly 28 \secs. Huge!
 
 \subsubsection{Avoiding synchronization}
-Looking at the profiling results of the preivous steps, at 28 seconds, we saw that synchronization of devices was slow. In order to improve this, we decided to run each kernel on a stream, and only sync them afterwards. On its own, this improved the runtime by a smidge, but nothing meaningful; but it did permit us to reorder the synchronization, and only do it when required.
+Looking at the profiling results of the preivous steps, at 28 seconds, we saw that synchronization of devices was the bottleneck. To handle this, we decided to run each kernel on a stream, and only sync them afterwards. On its own, this improved the runtime by a smidge, but nothing meaningful; but it did permit us to reorder the synchronization, and only do it when required.
 
-We would extend this asynchronous execution to memory transfers between the host and the device too, which again didn't help much on its own, but actually set us up to interleave certain CPU function calls. It was a this point where we realized we could benefit from prefetching device memory as soon as the old device memory was no longer going to be used. Remember: \code{dct_quantize}, \code{dequantize_dct} and \code{write_frame} entirely use host memory, and are the last steps of each frame loop. Effectively, this means we can start loading in the next buffer to the device prior to calling these slow CPU functions asynchronously.
+We would extend this asynchronous execution to memory transfers between the host and the device too, which again didn't help much on its own, but actually set us up to interleave certain CPU function calls. It was a this point where we realized we could benefit from prefetching device memory as soon as the old device memory was no longer going to be used\footnote{the code we delievered actually starts copying after starting dequantization, but this should be started immediately after compensation!}. Remember: \code{dct_quantize}, \code{dequantize_dct} and \code{write_frame} entirely use host memory, and are the last steps of each frame loop. Effectively, this means we can start loading in the next buffer to the device prior to calling these slow CPU functions asynchronously.
 
 Prefetching the next frame by the use of a framebuffer (see \commit{0a8ef5a568f3429aac6312a84c212801112f8ae7}) reduced the total execution time from roughly 28 seconds to around 17 seconds. Again, huge!
 
@@ -157,7 +158,7 @@ Even if the bottleneck at this point seems to lay at the bandwidth for memory tr
 \subsection{Sum of Absolute Differences (SAD)}
 Motion estimation is calculated for each macroblock (a non-overlapping 8x8 region of a frame) in the current frame. This is done by finding the best match for each macroblock in the current frame with the one in the previous frame. The best match, in this case, is the macroblock with the minimal total pixel difference.
 
-We can make the calculation of the SAD quicker by having each thread in the warp calculate the difference between a single pair of pixels, and sum up the differences after all 64 pairs have been calculated. This makes no thread left hanging, as each warp contains 32 threads \cite{nvidia_cuda_best_practices}.
+We can make the calculation of the SAD quicker by having each thread in the warp calculate the difference between a single pair of pixels, and sum up the differences after all 64 pairs have been calculated. This makes no thread left hanging, as each warp contains 32 threads~\cite{nvidia_cuda_best_practices}.
 
 \subsection{Improving macroblock loops}
 To optimize the traversal of macroblocks and minimize memory contention, we distribute the workload across threads using a stride of \code{blockDim.x} and \code{blockDim.y}. This allows each thread to process different candidate positions in parallel, without blocking memory, improving overall efficiency. 
@@ -166,11 +167,18 @@ Additionally, using \code{atomicMin} instead of synchronizing threads each time 
 
 However, further optimization could be achieved by improving memory access patterns to ensure better coalescence and warp utilization.
 
-\subsection{Shared memory and constant memory}
-In order to avoid waiting for data transfer between warps, we make use of shared memory for the SAD blocks. Shared memory is much faster than the global memory it would have used otherwise. We also initialize constant memory since they are never changed, and can thus be cached between kernel launches.
+\subsection{Shared memory, constant memory}
+In order to avoid waiting for data transfer between warps, we make use of shared memory for the SAD blocks. Shared memory is much faster than the global memory it would have used otherwise. While we can't confirm this, we suspect there might be some unreported benefit to using shared memory on top of the speed, as this frees up some space in the global memory space we could use for buffering.
+
+We also initialize constant memory at the beginning of the program with buffer sizes ranges, widths and the sort since they are never changed, and can thus be cached between kernel launches.
+
+\subsection{Memory types and memory access}
+In an intial version of our code, we would copy the reconstructed frame into the reference frame buffer for the next frame in the pipeline, but we quickly thought that because this data already exists on the device in another location, it would be much quicker to just swap the pointers each frame. In the code, this could cause some confusion, since it's not super clear what the \code{reference} frame currently means, but the advantages of it are clear.
+
+We also played around a bit with different types of memory allocation, such as simply mallocing on the host with \code{malloc}, and also with different categories of \code{cudaMalloc}. From what we saw, the best memory type to use in our implementation was cudaHostAllocDefault, but we do believe using cudaHostMapped would be faster after implementing \code{cudaMemPrefetchAsync}.
 
 \section{Results}
-We have profiling results for a few iterations of the code. The initial cpu-driven execution was described in Table~\ref{slow-cpu-timings}. On top of this we have the following measurements:
+We have profiling results for a few iterations of the code. The initial cpu-driven execution was described in Table~\ref{tab:slow-cpu-timings}. On top of this we have the following measurements:
 
 \begin{table}[h]
   \caption{Measurements from Nsight Systems \nocite{nsight-sys}}
@@ -187,7 +195,7 @@ We have profiling results for a few iterations of the code. The initial cpu-driv
     Streamed kernels & 28.5 s & N/A & N/A \\
     Framebuffering/async memory transfer & 17.75 s & N/A & N/A \\
   \end{tabular}
-  \label{measurements}
+  \label{tab:measurements}
 \end{table}
 
 All the measurements done here are done with CMake set to Debug mode. Using release mode easily improves these measurements by an order of magnitude.
@@ -208,6 +216,7 @@ Our implementation is far from perfect. We have a few ideas in mind which we did
   \item Using \code{cudaMemPrefetchAsync} might allow the GPU to handle memory better, since it knows better when it has free memory. It might be even better to calculate the optimal buffer banks and whatnot from ourside, instead. This should be tested.
   \item Allocating more space for preemptive framebuffering on the GPU might be beneficial, as it seems we aren't even close to filling the device memory.
   \item Combining the use of events for data transfers and kernel execution completion to preemptively launch memory transfers without stalling would allow for interleaving more CPU operations while we're waiting for the kernels to finish. That is, we want to remove all cases of manually synchronizing streams or devices, and have CUDA handle data dependencies by its own scheduler.
+  \item We know that memory alignment is important, since copying an entire memory page from the start to its end will be quicker than starting at some offset of it, but we haven't looked into this yet.
 \end{itemize}
 
 \section{Conclusion}

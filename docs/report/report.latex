@@ -39,10 +39,10 @@ The initial code, running sequentially on the CPU, encoded the image one frame a
 
 For reference, the decoder will only have access to the motion vectors (whence estimation) and the residuals (from quantization), where it will run the following procedure for each frame: read motion vectors and residuals from encoded file, add motion compensation, and reconstruct the image through dequantization.
 
-\begin{figure}[H]
+\begin{figure}[h]
   \centering
-  \includegraphics[width=0.8\columnwidth]{assets/dataflow.png} 
-  \caption{Dataflow diagram for Codec63 Encoder (left)/Decoder (right) The colur coresponse to the output}
+  \includegraphics[width=1.2\columnwidth]{assets/dataflow.png} 
+  \caption{Dataflow diagram for Codec63 Encoder (left)/Decoder (right) The colur of the functions coresponse to its data output. The bucket on top are inputs and the once at the bottom are outputs.}
   \label{fig:dataflow}
 \end{figure}
 
@@ -72,10 +72,24 @@ In order to optimize the code, we need to understand the relationship between fu
 \end{table*}
 
 \section{Optimization techniques}
+Table show some of the optimization techniques we used, and the results of each. the biggest improvement was when we Parallalize the motion estimation. The use of asyncrons memory transfers with streams was also a big improvement.. After that, we can assume that the optimization had the most impact on the kernel. And even if the the tme diden't massively improve, the propercentage wise of the whole? kenrel usage had when dwon. 
+
+
+Add pic (make it to)
 
 \section{Results}
 
 \section{Discussion}
+\subsection{Bad machine}
+Both the - and the - was down since Frindy 2025-02-31 17:15 to the wrting of this raport. This effected both our code delivery, as we could not test to see if it work. and made it imposeble to do more stuff to it (events, play wiht numbers, etc.). And this report, not possible to run profiling on each optimization techinques. So we work with what we have. Some data points we have, the final result (wrong version, before scaling thing), and other from memory (we look at those for a long time). As the maschine is down, we do not have as many datapoints as we would like, and the accuracy is not exact. But kinda true, - the optimization and the time is vibing corretly. 
+
+\sebsection{Why CUDA dec}
+Did't have to worry about maintaing both a device and host version of the  motion compensation. 
+
+\section{Conclusion}
+one version works, but not pretty. One pretty version and we think it works. Understud optimization the vidoe encoding, did it (two times). With focus on optimization of the - runtime and specificly on the kernel (estimation and compensation). 
+
+Better if the machine worked (lots of downtime on those).
 
 \end{document}
 

@@ -39,6 +39,14 @@ The initial code, running sequentially on the CPU, encoded the image one frame a
 
 For reference, the decoder will only have access to the motion vectors (whence estimation) and the residuals (from quantization), where it will run the following procedure for each frame: read motion vectors and residuals from encoded file, add motion compensation, and reconstruct the image through dequantization.
 
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\columnwidth]{assets/dataflow.png} 
+  \caption{Dataflow diagram for Codec63 Encoder (left)/Decoder (right) The colur coresponse to the output}
+  \label{fig:dataflow}
+\end{figure}
+
+
 \subsection{Data dependency constraints}
 In the initial code, the encoder and the decoder shared the same functions for the aforementioned steps: estimation, compensation, quantization and dequantization. It's important that the encoded frame written by the encoder shares the same format expected by the decoder's reader, and it's desirable that we maintain function compatibility between both versions for consistency; even if our main goal is to improve the encoder.
 
@@ -47,6 +55,7 @@ In order to optimize the code, we need to understand the relationship between fu
 \begin{table*}[h]
   \renewcommand{\arraystretch}{1.3}
   \rowcolors{2}{gray!20}{white}
+  % chktex-file 44
   \begin{tabular}{>{\scriptsize}p{3cm}|>{\scriptsize}p{1.5cm}|>{\scriptsize}p{1.5cm}|>{\scriptsize}p{1.5cm}|>{\scriptsize}p{7cm}}
     \hline
     \rowcolor{gray!50}

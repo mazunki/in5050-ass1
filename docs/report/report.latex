@@ -131,7 +131,7 @@ One of the benefits of running compensation on the GPU is that we no longer had 
 We didn't really observe much of a difference after optimizing compensation, albeit the kernel itself would run faster. The bottleneck at this point is mostly bandwidth transfer anyway.
 
 \subsection{Tuning kernel code}
-Even if the bottleneck at this point seems to lay at the bandwidth for memory transfer, we decided to look into making each kernel run faster on its own. Upgrading hardware could make these optimizations relevant, even if isn't for the particular hardware we are testing on.
+Even if the bottleneck at this point seems to lay at the bandwidth for memory transfer, we decided to look into making each kernel run faster on its own. Upgrading hardware could make these optimizations relevant, even if isn't showing any major benefit for the particular hardware we are testing on.
 
 \subsection{Sum of Absolute Differences (SAD)}
 Motion estimation is calculated for each macroblock (a non-overlapping 8x8 region of a frame) in the current frame. This is done by finding the best match for each macroblock in the current frame with the one in the previous frame. The best match, in this case, is the macroblock with the minimal total pixel difference.

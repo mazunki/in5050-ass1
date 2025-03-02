@@ -1,0 +1,72 @@
+\documentclass[a4paper,10pt,twocolumn]{article}
+\usepackage[a4paper, margin=2cm]{geometry}
+
+\usepackage{float}
+
+\usepackage{titlesec}
+\usepackage{array}
+\usepackage{colortbl}
+\usepackage{xcolor}
+
+% \titlespacing*{\section}{0pt}{10ex}{3ex}
+% \titlespacing*{\subsection}{0pt}{6ex}{2ex}
+
+\usepackage{xparse}
+\NewDocumentCommand{\code}{v}{\texttt{\detokenize{#1}}}
+
+\author{\{liseej, rolfvh\}@uio.no}
+\date{2025-02-06}
+\title{Home exam 1 \\ {\large Codec63 Encoder on CUDA --- IN5050}}
+
+\usepackage{graphicx}
+
+\usepackage{url}
+% \usepackage[authordate,backend=biber,natbib,sortcites]{biblatex-chicago}
+% \addbibresource{mybib.bib}
+
+\usepackage[hidelinks]{hyperref}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+This report goes through the optimization done for the Codec63 encoder which we were tasked to parallelize through the use of CUDA, mainly consisting of motion estimation and motion compensation to encode and decode one frame of a YUV video at a time.
+
+For this assignment, we were provided with a build server and two GPU machines. The GPU machines each had their own Nvidia Quadro K2200 card. The build server was compiling our code with \code{nvcc} version 11.4. We were using rsync to push the changes to the build server, and further synced this to the GPU machine to perform testing through \code{nsys}, and we were looking at the results locally through Nsight Systems 2024.6.2.
+
+\section{Design}
+The initial code, running sequentially on the CPU, encoded the image one frame at a time, stepping through the following steps, in order: read image from file, perform motion estimation, add motion compensation, calculate quantization, reconstruct with dequantization, and finally write the encoded image to file.
+
+For reference, the decoder will only have access to the motion vectors (whence estimation) and the residuals (from quantization), where it will run the following procedure for each frame: read motion vectors and residuals from encoded file, add motion compensation, and reconstruct the image through dequantization.
+
+\subsection{Data dependency constraints}
+In the initial code, the encoder and the decoder shared the same functions for the aforementioned steps: estimation, compensation, quantization and dequantization. It's important that the encoded frame written by the encoder shares the same format expected by the decoder's reader, and it's desirable that we maintain function compatibility between both versions for consistency; even if our main goal is to improve the encoder.
+
+In order to optimize the code, we need to understand the relationship between functions and the data flow. For this, we will display this information both in the form of a descriptive table using the same names as used in-code, and a flowchart figure friendlier to people.
+
+\begin{table*}[h]
+  \renewcommand{\arraystretch}{1.3}
+  \rowcolors{2}{gray!20}{white}
+  \begin{tabular}{>{\scriptsize}p{3cm}|>{\scriptsize}p{1.5cm}|>{\scriptsize}p{1.5cm}|>{\scriptsize}p{1.5cm}|>{\scriptsize}p{7cm}}
+    \hline
+    \rowcolor{gray!50}
+    \textbf{function} & \textbf{data in} & \textbf{data out} & \textbf{hardware} & \textbf{description} \\ 
+    \hline
+    \code{read_yuv} & file & \code{orig} & disk, CPU & reads the uncompressed YUV data into a buffer \\
+    \code{c63_motion_estimate} & \code{orig}, \code{ref} & \code{mbs} & CUDA & finds the movement of pixels between the previous frame and the current frame \\
+    \code{c63_motion_compensate} & \code{ref}, \code{mbs} & \code{predicted} & CUDA & predicts what a frame would look like (compensating for the lack of original frame data) \\
+    \code{dct_quantize} & \code{orig}, \code{predicted} & \code{residuals} & CPU & applies colour correction as the difference between the predicted image and the original image, stored in the frequency domain (discrete cosine transform) and compressed through quantization \\
+    \code{dequantize_idct} & \code{predicted}, \code{residuals} & \code{recons} & CPU & reconstructs the image by applying colour correction on top of the predicted image \\
+    \code{write_frame} & \code{mbs}, \code{residuals} & enc. file & disk, cpu & saves the encoded data to disk with required header information for each frame \\
+    \code{parse_frame} & encoded file & \code{mbs}, \code{residuals} & disk, cpu & parses an encoded frame, storing the motion vectors and the residuals into a frame buffer
+  \end{tabular}
+\end{table*}
+
+\section{Optimization techniques}
+
+\section{Results}
+
+\section{Discussion}
+
+\end{document}
+

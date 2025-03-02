@@ -56,7 +56,7 @@ For reference, the decoder will only have access to the motion vectors (whence e
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=1.2\columnwidth]{assets/dataflow.png} 
+  \includegraphics[width=1.0\columnwidth]{assets/dataflow.png} 
   \caption{Dataflow diagram for Codec63 Encoder (left)/Decoder (right) The background colour of each function corresponds with its data output.}
   \label{fig:dataflow}
 \end{figure}

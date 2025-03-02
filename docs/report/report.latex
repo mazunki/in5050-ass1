@@ -3,16 +3,36 @@
 
 \usepackage{float}
 
+\usepackage{amsmath}
 \usepackage{titlesec}
 \usepackage{array}
 \usepackage{colortbl}
 \usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,      % Use colored text instead of boxes
+    urlcolor=blue,        % Set link color to blue (change if needed)
+    linkcolor=blue,       % Keep internal links blue as well
+    citecolor=blue,       % Keep citation links blue
+    breaklinks=true,      % Allow URLs to wrap properly
+}
 
-% \titlespacing*{\section}{0pt}{10ex}{3ex}
-% \titlespacing*{\subsection}{0pt}{6ex}{2ex}
-
+\usepackage{xstring}
 \usepackage{xparse}
+\usepackage{url}
+\usepackage[backend=biber]{biblatex}
+\addbibresource{references.bib}
+
+
 \NewDocumentCommand{\code}{v}{\texttt{\detokenize{#1}}}
+\newcommand{\us}{\ensuremath{\mu\text{s}}}
+\newcommand{\ms}{\ensuremath{\text{ms}}}
+\newcommand{\secs}{\ensuremath{\text{s}}}
+\newcommand{\commit}[1]{%
+  \StrLeft{#1}{6}[\shortcommit]%
+  \href{https://github.com/mazunki/in5050-ass1/commit/#1}{commit \texttt{\shortcommit}}%
+}
+
 
 \author{\{liseej, rolfvh\}@uio.no}
 \date{2025-02-06}
@@ -20,11 +40,6 @@
 
 \usepackage{graphicx}
 
-\usepackage{url}
-% \usepackage[authordate,backend=biber,natbib,sortcites]{biblatex-chicago}
-% \addbibresource{mybib.bib}
-
-\usepackage[hidelinks]{hyperref}
 
 \begin{document}
 \maketitle
@@ -42,7 +57,7 @@ For reference, the decoder will only have access to the motion vectors (whence e
 \begin{figure}[h]
   \centering
   \includegraphics[width=1.2\columnwidth]{assets/dataflow.png} 
-  \caption{Dataflow diagram for Codec63 Encoder (left)/Decoder (right) The colur of the functions coresponse to its data output. The bucket on top are inputs and the once at the bottom are outputs.}
+  \caption{Dataflow diagram for Codec63 Encoder (left)/Decoder (right) The background colour of each function corresponds with its data output.}
   \label{fig:dataflow}
 \end{figure}
 
@@ -66,30 +81,88 @@ In order to optimize the code, we need to understand the relationship between fu
     \code{c63_motion_compensate} & \code{ref}, \code{mbs} & \code{predicted} & CUDA & predicts what a frame would look like (compensating for the lack of original frame data) \\
     \code{dct_quantize} & \code{orig}, \code{predicted} & \code{residuals} & CPU & applies colour correction as the difference between the predicted image and the original image, stored in the frequency domain (discrete cosine transform) and compressed through quantization \\
     \code{dequantize_idct} & \code{predicted}, \code{residuals} & \code{recons} & CPU & reconstructs the image by applying colour correction on top of the predicted image \\
-    \code{write_frame} & \code{mbs}, \code{residuals} & enc. file & disk, cpu & saves the encoded data to disk with required header information for each frame \\
+    \code{write_frame} & \code{mbs}, \code{residuals} & encoded file & disk, cpu & saves the encoded data to disk with required header information for each frame \\
     \code{parse_frame} & encoded file & \code{mbs}, \code{residuals} & disk, cpu & parses an encoded frame, storing the motion vectors and the residuals into a frame buffer
   \end{tabular}
 \end{table*}
+
+\section{Objectives}
+The purpose of having an encoder is to reduce the file size of our image, but this is not the focus of this assignment: we are simply reusing the algorithms provided to us. Our goal, primarily, is to make the encoder run faster by the means of exploiting the parallel nature of the task. For this, we will be using CUDA, a platform and interface allowing us to execute code on multicore GPUs.
 
 \section{Optimization techniques}
 Table show some of the optimization techniques we used, and the results of each. the biggest improvement was when we Parallalize the motion estimation. The use of asyncrons memory transfers with streams was also a big improvement.. After that, we can assume that the optimization had the most impact on the kernel. And even if the the tme diden't massively improve, the propercentage wise of the whole? kenrel usage had when dwon. 
 
 
-Add pic (make it to)
+Without getting into the specifics, there are two main areas which causes the encoder to be slow. The first one is the synchroneous nature of running functions in sequence, where each step has to wait for the previous one to finish. In a naïve implementation, this is necessary because we need to wait for the data to be populated before we continue.
+
+The second cause of slowness is the fact that each individual function is slow by itself. In an initial profiling we observed that most of the time spent encoding was active CPU time spent finding the motion vectors during estimation.
+
+Initial measurements of the precode tells us that the complete encoding takes roughly 122.28 \secs, \code{fputc} takes between 3.34 \us and 9.71 \us, and each call to \code{c63enc} takes 7.987 \ms. % FIXME: not c63enc
+
+\subsection{Parallelizing pixel maths}
+\subsubsection{Using CUDA to parallelize tasks}
+If we want to parallelize the execution of estimation on CUDA, we need to ensure that the GPU has access to the data it needs to perform calculations on. In the first iteration of motion estimation, we blindly allocated memory inside the \code{c63_motion_estimate} for both the inputs and the outputs, and synchronized the execution at the end of this function. This was a bad idea, and in hindsight it makes complete sense. The total time for encoding went up to circa 540 seconds, even with parallelization!
+
+Our failed attempt quickly made us realize that we would benefit from reusing memory allocations, so we decided to allocate pinned memory for all our transfers before starting to encode a single frame (see \commit{f038f37ca7babe508400ba9045d74d26c6f2aafd}).
+
+We also thought that reducing the amount of data-which-wasn't-going-to-be-used-anyway we transferred to the device would be a good idea. Additionally, because the GPU is not capable of reading host memory directly (without using mapped memory), we decided to get rid of any unnecessary indirection from the parameters sent to the kernel functions (see \commit{0581de573f7c0c71123f6a185d969055ab63231e}).
+
+\subsubsection{Parallelizing estimation}
+After having set up memory on the device, and having dealt with the required wrappers for the kernel, we can calculate estimation in parallel on the GPU instead (see \commit{8bc5079bd962fe9c7d2c7120442072aa5cb42f54} and \commit{d30b1aa11223f4b4a18fe1e1939b0ab37fd6ef79}). While simply moving the kernel code to run on the GPU by itself doesn't improve performance much, getting rid of loops inside each kernel does drastically speed up the execution.
+
+As a note, we can avoid passing the index locations to the device, too, since each thread is aware of its own CUDA thread index, which we can treat as a free parameter. 
+
+This parallelization, with no further changes to the flow, reduces the total time from 122 \secs\, to roughly 28 \secs. Huge!
+
+\subsubsection{Avoiding synchronization}
+Looking at the profiling results of the preivous steps, at 28 seconds, we saw that synchronization of devices was slow. In order to improve this, we decided to run each kernel on a stream, and only sync them afterwards. On its own, this improved the runtime by a smidge, but nothing meaningful; but it did permit us to reorder the synchronization, and only do it when required.
+
+We would extend this asynchronous execution to memory transfers between the host and the device too, which again didn't help much on its own, but actually set us up to interleave certain CPU function calls. It was a this point where we realized we could benefit from prefetching device memory as soon as the old device memory was no longer going to be used. Remember: \code{dct_quantize}, \code{dequantize_dct} and \code{write_frame} entirely use host memory, and are the last steps of each frame loop. Effectively, this means we can start loading in the next buffer to the device prior to calling these slow CPU functions asynchronously.
+
+Prefetching the next frame by the use of a framebuffer (see \commit{0a8ef5a568f3429aac6312a84c212801112f8ae7}) reduced the total execution time from roughly 28 seconds to around 17 seconds. Again, huge!
+
+\subsubsection{Parallelizing compensation}
+After our success with parallelizing estimation, we decided we could do the same thing with compensation. We hadn't done this prior, since it wasn't really the bottleneck for performance until this point.
+
+In our first iteration of the code, we would keep the CPU-version of this around, since the decoder also depended on this, and we didn't want to deal with refactoring the decoder yet. Eventually, we would just upgrade the decoder to support the required initialization for CUDA, since it made the code more maintainable regardless, plus it really had no downsides.
+
+One of the benefits of running compensation on the GPU is that we no longer had to wait for the device memory of the motion vectors to return to the host, since we can now read from the same device memory addresses the estimation would write to previously. This would effectively parallelize motion compensation with the memory transfer of the motion vectors.
+
+We didn't really observe much of a difference after optimizing compensation, albeit the kernel itself would run faster. The bottleneck at this point is mostly bandwidth transfer anyway.
+
+\subsection{Tuning kernel code}
+Even if the bottleneck at this point seems to lay at the bandwidth for memory transfer, we decided to look into making each kernel run faster on its own. Upgrading hardware could make these optimizations relevant, even if isn't for the particular hardware we are testing on.
+
+\subsection{Sum of Absolute Differences (SAD)}
+Motion estimation is calculated for each macroblock (a non-overlapping 8x8 region of a frame) in the current frame. This is done by finding the best match for each macroblock in the current frame with the one in the previous frame. The best match, in this case, is the macroblock with the minimal total pixel difference.
+
+We can make the calculation of the SAD quicker by having each thread in the warp calculate the difference between a single pair of pixels, and sum up the differences after all 64 pairs have been calculated. This makes no thread left hanging, as each warp contains 32 threads \cite{nvidia_cuda_best_practices}.
+
+\subsection{Improving macroblock loops}
+To optimize the traversal of macroblocks and minimize memory contention, we distribute the workload across threads using a stride of \code{blockDim.x} and \code{blockDim.y}. This allows each thread to process different candidate positions in parallel, without blocking memory, improving overall efficiency. 
+
+Additionally, using \code{atomicMin} instead of synchronizing threads each time someone wants to write their value avoids having to wait for all threads to finish.
+
+However, further optimization could be achieved by improving memory access patterns to ensure better coalescence and warp utilization.
+
+\subsection{Shared memory and constant memory}
+In order to avoid waiting for data transfer between warps, we make use of shared memory for the SAD blocks. Shared memory is much faster than the global memory it would have used otherwise. We also initialize constant memory since they are never changed, and can thus be cached between kernel launches.
+
 
 \section{Results}
 
 \section{Discussion}
-\subsection{Bad machine}
-Both the - and the - was down since Frindy 2025-02-31 17:15 to the wrting of this raport. This effected both our code delivery, as we could not test to see if it work. and made it imposeble to do more stuff to it (events, play wiht numbers, etc.). And this report, not possible to run profiling on each optimization techinques. So we work with what we have. Some data points we have, the final result (wrong version, before scaling thing), and other from memory (we look at those for a long time). As the maschine is down, we do not have as many datapoints as we would like, and the accuracy is not exact. But kinda true, - the optimization and the time is vibing corretly. 
+\subsection{Malfunctioning GPU machines}
+Both machines (\code{in5050-2014-11} and \code{in5050-2016-10}) were down since Friday 2025-02-31 afternoon, which is when we were both wrapping up our code optimizations, and started to collect profiling summaries for this report. This consequently affect both our code delivery, as we could not test the last commits we had planned to include, and made it impossible to add any new major optimizations.
 
-\sebsection{Why CUDA dec}
-Did't have to worry about maintaing both a device and host version of the  motion compensation. 
+We had planned to collect profiles for each feature of optimization we have added, but this was impossible since we do not have access to an Nvidia machine when the servers are down. We do have some data points, but we can't know for certain which commits they belong to. 
+
+Most of this report stems from the progressive profiling we have done, and the vibes we've felt from each step. Sadly, though, we did not have a chance to make a combinatorial permutation of the different approaches, nor do we have exact values for what each step of the kernel tuning added.
 
 \section{Conclusion}
-one version works, but not pretty. One pretty version and we think it works. Understud optimization the vidoe encoding, did it (two times). With focus on optimization of the - runtime and specificly on the kernel (estimation and compensation). 
+Most of the information related to this report can be found on GitHub (\code{mazunki/in5050-ass1}\nocite{github}) at the \code{neo} branch.
 
-Better if the machine worked (lots of downtime on those).
+\printbibliography
 
 \end{document}
 
